@@ -1,3 +1,5 @@
+import Regex.Set
+
 /-!
 The heart of the engine.
 
@@ -17,18 +19,18 @@ The abstract syntax of regular expressions.
 
 Six constructors are enough to express every classic regex:
 
-| Constructor | Regex syntax | Matches                               |
-|-------------|--------------|---------------------------------------|
-| `Fail`      | (none)       | nothing at all — the empty set        |
-| `Eps`       | (empty)      | exactly the empty string              |
-| `Lit c`     | `c`          | exactly the one-character string "c"  |
-| `Cat l r`   | `lr`         | an `l`-match followed by an `r`-match |
-| `Alt l r`   | `l\|r`       | whatever `l` or `r` matches           |
-| `Star r`    | `r*`         | zero or more `r`-matches in a row     |
+| Constructor | Regex syntax     | Matches                               |
+|-------------|------------------|---------------------------------------|
+| `Fail`      | (none)           | nothing at all — the empty set        |
+| `Eps`       | (empty)          | exactly the empty string              |
+| `Sym s`     | `c` `[a-z]` `.`  | any one character from the set `s`    |
+| `Cat l r`   | `lr`             | an `l`-match followed by an `r`-match |
+| `Alt l r`   | `l\|r`           | whatever `l` or `r` matches           |
+| `Star r`    | `r*`             | zero or more `r`-matches in a row     |
 
-Everything else you know from regex — `+`, `?`, character classes,
-`{n,m}` — is syntactic sugar that we will *compile down* to these
-six later in the book.
+Everything else you know from regex — `+`, `?`, `{n,m}` — is
+syntactic sugar that we will *compile down* to these six later
+in the book.
 -/
 inductive Regex : Type where
   /-- Matches nothing at all: the empty *set* of strings (∅).
@@ -36,8 +38,10 @@ inductive Regex : Type where
   | Fail : Regex
   /-- Matches exactly the empty string (ε). -/
   | Eps : Regex
-  /-- Matches exactly one specific character. -/
-  | Lit : Char → Regex
+  /-- Matches exactly one character, drawn from a set: literals,
+  classes like `[a-z]`, and the wildcard `.` are all this one
+  constructor with different sets. -/
+  | Sym : CharSet → Regex
   /-- Sequencing (concatenation): `Cat l r` matches a string that can
   be split so that `l` matches the front and `r` matches the rest. -/
   | Cat : Regex → Regex → Regex
@@ -54,7 +58,7 @@ mutual
   def showRegex : Regex → String
     | Fail => "Fail"
     | Eps => "Eps"
-    | Lit c => "Lit " ++ reprStr c
+    | Sym s => "Sym (" ++ toString s ++ ")"
     | Cat l r => "Cat " ++ showArg l ++ " " ++ showArg r
     | Alt l r => "Alt " ++ showArg l ++ " " ++ showArg r
     | Star r => "Star " ++ showArg r
@@ -92,7 +96,7 @@ but are not `==`.
 def beq : Regex → Regex → Bool
   | Fail, Fail => true
   | Eps, Eps => true
-  | Lit c, Lit d => c == d
+  | Sym s1, Sym s2 => s1 == s2
   | Cat l1 r1, Cat l2 r2 => beq l1 l2 && beq r1 r2
   | Alt l1 r1, Alt l2 r2 => beq l1 l2 && beq r1 r2
   | Star r1, Star r2 => beq r1 r2
@@ -121,7 +125,7 @@ definition of "matches the empty string", written case by case.
 def nullable : Regex → Bool
   | Fail => false
   | Eps => true
-  | Lit _ => false
+  | Sym _ => false
   | Cat l r => nullable l && nullable r
   | Alt l r => nullable l || nullable r
   | Star _ => true
@@ -173,6 +177,14 @@ def star : Regex → Regex
   | r => Star r
 
 /--
+The familiar way to ask for one specific character: a
+one-character set. `Lit` from the earlier chapters lives on as
+this ordinary function — the AST no longer needs a special case.
+-/
+def lit : Char → Regex
+  | c => Sym (CharSet.single c)
+
+/--
 The Brzozowski derivative: `deriv c r` is the regex matching
 exactly the strings `s` such that `r` matches `c :: s`.
 
@@ -193,7 +205,7 @@ The two interesting cases:
 def deriv : Char → Regex → Regex
   | _, Fail => Fail
   | _, Eps => Fail
-  | c, Lit x => if c == x then Eps else Fail
+  | c, Sym s => if CharSet.member c s then Eps else Fail
   | c, Cat l r =>
     if nullable l then
       alt (cat (deriv c l) r)   -- the head ate the character...

@@ -1,9 +1,11 @@
 -- Specs for `Regex.Core` — the abstract syntax of regular expressions.
 import Harness
 import Regex.Core
+import Regex.Set
 
 open Harness
 open Regex
+open CharSet
 
 /-- The AST is just data: we can build it, print it, and compare it. -/
 def astSpecs : List Spec :=
@@ -11,20 +13,20 @@ def astSpecs : List Spec :=
       (toString Fail) "Fail"
   , shouldBe "show renders the empty-string regex"
       (toString Eps) "Eps"
-  , shouldBe "show renders a character literal"
-      (toString (Lit 'a')) "Lit 'a'"
+  , shouldBe "show renders a one-character set"
+      (toString (lit 'a')) "Sym (MkSet false [('a', 'a')])"
   , shouldBe "show parenthesizes nested structure"
-      (toString (Cat (Lit 'a') (Star (Lit 'b'))))
-      "Cat (Lit 'a') (Star (Lit 'b'))"
+      (toString (Star (Alt Eps Fail)))
+      "Star (Alt Eps Fail)"
   , shouldBe "show renders alternation"
-      (toString (Alt Eps (Lit 'x')))
-      "Alt Eps (Lit 'x')"
+      (toString (Alt Eps (Star Eps)))
+      "Alt Eps (Star Eps)"
   , it "structurally equal regexes are equal"
-      (Cat (Lit 'a') (Alt Eps (Lit 'b')) == Cat (Lit 'a') (Alt Eps (Lit 'b')))
+      (Cat (lit 'a') (Alt Eps (lit 'b')) == Cat (lit 'a') (Alt Eps (lit 'b')))
   , it "different literals are not equal"
-      (Lit 'a' != Lit 'b')
+      (lit 'a' != lit 'b')
   , it "different shapes are not equal"
-      (Star (Lit 'a') != Cat (Lit 'a') (Lit 'a'))
+      (Star (lit 'a') != Cat (lit 'a') (lit 'a'))
   ]
 
 /-- `nullable r` answers one question: does `r` match the empty string? -/
@@ -34,17 +36,17 @@ def nullableSpecs : List Spec :=
   , shouldBe "Eps matches exactly the empty string"
       (nullable Eps) true
   , shouldBe "a literal needs one character, empty is not enough"
-      (nullable (Lit 'a')) false
+      (nullable (lit 'a')) false
   , shouldBe "a star matches zero repetitions, i.e. the empty string"
-      (nullable (Star (Lit 'a'))) true
+      (nullable (Star (lit 'a'))) true
   , shouldBe "a sequence is nullable only when both halves are"
-      (nullable (Cat Eps (Star (Lit 'a')))) true
+      (nullable (Cat Eps (Star (lit 'a')))) true
   , shouldBe "a sequence with a non-nullable half is not nullable"
-      (nullable (Cat (Star (Lit 'a')) (Lit 'b'))) false
+      (nullable (Cat (Star (lit 'a')) (lit 'b'))) false
   , shouldBe "a choice is nullable when either branch is"
-      (nullable (Alt (Lit 'a') Eps)) true
+      (nullable (Alt (lit 'a') Eps)) true
   , shouldBe "a choice of two literals is not nullable"
-      (nullable (Alt (Lit 'a') (Lit 'b'))) false
+      (nullable (Alt (lit 'a') (lit 'b'))) false
   ]
 
 def derivSpecs : List Spec :=
@@ -53,20 +55,20 @@ def derivSpecs : List Spec :=
   , shouldBe "Eps has nothing left to give after any character"
       (deriv 'a' Eps) Fail
   , shouldBe "consuming the right literal leaves the empty string"
-      (deriv 'a' (Lit 'a')) Eps
+      (deriv 'a' (lit 'a')) Eps
   , shouldBe "consuming the wrong literal fails"
-      (deriv 'b' (Lit 'a')) Fail
+      (deriv 'b' (lit 'a')) Fail
   , shouldBe "a choice derives both branches — and drops the dead one"
-      (deriv 'a' (Alt (Lit 'a') (Lit 'b')))
+      (deriv 'a' (Alt (lit 'a') (lit 'b')))
       Eps
   , shouldBe "a star unrolls one repetition, with no Eps junk in front"
-      (deriv 'a' (Star (Lit 'a')))
-      (Star (Lit 'a'))
+      (deriv 'a' (Star (lit 'a')))
+      (Star (lit 'a'))
   , shouldBe "a sequence derives its head first, simplified"
-      (deriv 'a' (Cat (Lit 'a') (Lit 'b')))
-      (Lit 'b')
+      (deriv 'a' (Cat (lit 'a') (lit 'b')))
+      (lit 'b')
   , shouldBe "a nullable head lets the character reach the tail — cleanly"
-      (deriv 'b' (Cat (Star (Lit 'a')) (Lit 'b')))
+      (deriv 'b' (Cat (Star (lit 'a')) (lit 'b')))
       Eps
   ]
 
@@ -78,37 +80,37 @@ character, then ask `nullable`. Full-string semantics.
 -/
 def matchesSpecs : List Spec :=
   [ it "a literal matches itself"
-      ((Lit 'a').matches "a")
+      ((lit 'a').matches "a")
   , it "a literal rejects a different character"
-      (not ((Lit 'a').matches "b"))
+      (not ((lit 'a').matches "b"))
   , it "Eps matches the empty string"
       (Eps.matches "")
   , it "matching is exact: 'a' does not match \"ab\""
-      (not ((Lit 'a').matches "ab"))
+      (not ((lit 'a').matches "ab"))
   , it "a sequence matches its halves in order"
-      ((Cat (Lit 'a') (Lit 'b')).matches "ab")
+      ((Cat (lit 'a') (lit 'b')).matches "ab")
   , it "a sequence cares about order"
-      (not ((Cat (Lit 'a') (Lit 'b')).matches "ba"))
+      (not ((Cat (lit 'a') (lit 'b')).matches "ba"))
   , it "a choice accepts its left branch"
-      ((Alt (Lit 'a') (Lit 'b')).matches "a")
+      ((Alt (lit 'a') (lit 'b')).matches "a")
   , it "a choice accepts its right branch"
-      ((Alt (Lit 'a') (Lit 'b')).matches "b")
+      ((Alt (lit 'a') (lit 'b')).matches "b")
   , it "a choice rejects anything else"
-      (not ((Alt (Lit 'a') (Lit 'b')).matches "c"))
+      (not ((Alt (lit 'a') (lit 'b')).matches "c"))
   , it "a* matches the empty string"
-      ((Star (Lit 'a')).matches "")
+      ((Star (lit 'a')).matches "")
   , it "a* matches one repetition"
-      ((Star (Lit 'a')).matches "a")
+      ((Star (lit 'a')).matches "a")
   , it "a* matches many repetitions"
-      ((Star (Lit 'a')).matches "aaaaaa")
+      ((Star (lit 'a')).matches "aaaaaa")
   , it "a* rejects intruders"
-      (not ((Star (Lit 'a')).matches "aaba"))
+      (not ((Star (lit 'a')).matches "aaba"))
   , it "(ab)* matches whole pairs only"
-      ((Star (Cat (Lit 'a') (Lit 'b'))).matches "abab")
+      ((Star (Cat (lit 'a') (lit 'b'))).matches "abab")
   , it "(ab)* rejects a dangling half pair"
-      (not ((Star (Cat (Lit 'a') (Lit 'b'))).matches "aba"))
+      (not ((Star (Cat (lit 'a') (lit 'b'))).matches "aba"))
   , it "(a|b)*c — a taste of a real pattern"
-      ((Cat (Star (Alt (Lit 'a') (Lit 'b'))) (Lit 'c')).matches "abbac")
+      ((Cat (Star (Alt (lit 'a') (lit 'b'))) (lit 'c')).matches "abbac")
   ]
 
 /--
@@ -118,29 +120,50 @@ so derivatives stay small instead of accumulating junk.
 -/
 def smartSpecs : List Spec :=
   [ shouldBe "Fail swallows a sequence from the left"
-      (cat Fail (Lit 'a')) Fail
+      (cat Fail (lit 'a')) Fail
   , shouldBe "Fail swallows a sequence from the right"
-      (cat (Lit 'a') Fail) Fail
+      (cat (lit 'a') Fail) Fail
   , shouldBe "sequencing with the empty string is a no-op (left)"
-      (cat Eps (Lit 'a')) (Lit 'a')
+      (cat Eps (lit 'a')) (lit 'a')
   , shouldBe "sequencing with the empty string is a no-op (right)"
-      (cat (Lit 'a') Eps) (Lit 'a')
+      (cat (lit 'a') Eps) (lit 'a')
   , shouldBe "anything else still nests as Cat"
-      (cat (Lit 'a') (Lit 'b')) (Cat (Lit 'a') (Lit 'b'))
+      (cat (lit 'a') (lit 'b')) (Cat (lit 'a') (lit 'b'))
   , shouldBe "a choice against Fail picks the live branch (left)"
-      (alt Fail (Lit 'a')) (Lit 'a')
+      (alt Fail (lit 'a')) (lit 'a')
   , shouldBe "a choice against Fail picks the live branch (right)"
-      (alt (Lit 'a') Fail) (Lit 'a')
+      (alt (lit 'a') Fail) (lit 'a')
   , shouldBe "identical branches collapse"
-      (alt (Lit 'a') (Lit 'a')) (Lit 'a')
+      (alt (lit 'a') (lit 'a')) (lit 'a')
   , shouldBe "anything else still nests as Alt"
-      (alt (Lit 'a') (Lit 'b')) (Alt (Lit 'a') (Lit 'b'))
+      (alt (lit 'a') (lit 'b')) (Alt (lit 'a') (lit 'b'))
   , shouldBe "the star of Fail can only match the empty string"
       (star Fail) Eps
   , shouldBe "the star of Eps is just Eps"
       (star Eps) Eps
   , shouldBe "a double star collapses to a single one"
-      (star (Star (Lit 'a'))) (Star (Lit 'a'))
+      (star (Star (lit 'a'))) (Star (lit 'a'))
   , shouldBe "anything else still wraps in Star"
-      (star (Lit 'a')) (Star (Lit 'a'))
+      (star (lit 'a')) (Star (lit 'a'))
+  ]
+
+/--
+The `Sym` constructor generalizes single-character literals to
+whole character sets — `.`, `[a-z]`, `\d` and friends.
+-/
+def symSpecs : List Spec :=
+  [ it "a range matches any character inside it"
+      ((Sym (range 'a' 'z')).matches "q")
+  , it "a range rejects characters outside it"
+      (not ((Sym (range 'a' 'z')).matches "Q"))
+  , it "the wildcard matches any single character"
+      ((Sym anyChar).matches "!")
+  , it "the wildcard still needs exactly one character"
+      (not ((Sym anyChar).matches "") && not ((Sym anyChar).matches "ab"))
+  , it "\\d* matches a run of digits"
+      ((Star (Sym digit)).matches "2026")
+  , it "a negated class matches everything but its members"
+      ((Star (Sym (complement (oneOf "\"")))).matches "no quotes here")
+  , it "lit is still available as a one-character set"
+      ((lit 'a').matches "a" && not ((lit 'a').matches "b"))
   ]
