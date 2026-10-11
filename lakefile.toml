@@ -12,6 +12,11 @@ srcDir = "src"
 name = "Harness"
 srcDir = "tests/src"
 
+[[lean_lib]]
+name = "Spec"
+srcDir = "tests/src"
+globs = ["Spec.+"]
+
 [[lean_exe]]
 name = "tests"
 root = "Main"

@@ -1,4 +1,5 @@
 import Harness
+import Spec.Core
 
 /-!
 Entry point of the test suite.
@@ -19,4 +20,4 @@ def sanitySpecs : List Spec :=
   , shouldBe "strings concatenate" ("fun" ++ "ctional") "functional"
   ]
 
-def main : IO Unit := runSpecs sanitySpecs
+def main : IO Unit := runSpecs (sanitySpecs ++ astSpecs)
