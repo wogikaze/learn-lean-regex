@@ -46,3 +46,26 @@ def nullableSpecs : List Spec :=
   , shouldBe "a choice of two literals is not nullable"
       (nullable (alt (lit 'a') (lit 'b'))) false
   ]
+
+def derivSpecs : List Spec :=
+  [ shouldBe "fail stays fail, whatever we feed it"
+      (deriv 'a' fail) fail
+  , shouldBe "eps has nothing left to give after any character"
+      (deriv 'a' eps) fail
+  , shouldBe "consuming the right literal leaves the empty string"
+      (deriv 'a' (lit 'a')) eps
+  , shouldBe "consuming the wrong literal fails"
+      (deriv 'b' (lit 'a')) fail
+  , shouldBe "a choice derives both branches"
+      (deriv 'a' (alt (lit 'a') (lit 'b')))
+      (alt eps fail)
+  , shouldBe "a star unrolls one repetition and keeps going"
+      (deriv 'a' (star (lit 'a')))
+      (cat eps (star (lit 'a')))
+  , shouldBe "a sequence derives its head first"
+      (deriv 'a' (cat (lit 'a') (lit 'b')))
+      (cat eps (lit 'b'))
+  , shouldBe "a nullable head lets the character reach the tail too"
+      (deriv 'b' (cat (star (lit 'a')) (lit 'b')))
+      (alt (cat (cat fail (star (lit 'a'))) (lit 'b')) eps)
+  ]

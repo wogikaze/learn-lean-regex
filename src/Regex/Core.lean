@@ -69,6 +69,37 @@ def nullable : Regex → Bool
   | alt l r => nullable l || nullable r
   | star _ => true
 
+/--
+The Brzozowski derivative: `deriv c r` is the regex matching
+exactly the strings `s` such that `r` matches `c :: s`.
+
+In plain words: "if `r` had to consume the character `c` first,
+what would be left of it?" Matching a whole string is then just
+deriving once per character — no backtracking, ever. This is the
+reason our engine runs in a single left-to-right pass.
+
+The two interesting cases:
+
+- `cat l r`: the character must be consumed by `l` — unless `l`
+  can match the empty string, in which case it may also skip `l`
+  and be consumed by `r`. That is exactly where `nullable` earns
+  its keep.
+- `star r`: a star that consumes a character has committed to at
+  least one repetition: derive one `r`, then the star continues.
+-/
+def deriv : Char → Regex → Regex
+  | _, fail => fail
+  | _, eps => fail
+  | c, lit x => if c == x then eps else fail
+  | c, cat l r =>
+    if nullable l then
+      alt (cat (deriv c l) r)   -- the head ate the character...
+          (deriv c r)           -- ...or the head vanished and the tail ate it
+    else
+      cat (deriv c l) r
+  | c, alt l r => alt (deriv c l) (deriv c r)
+  | c, star r => cat (deriv c r) (star r)
+
 mutual
   /-- Render a regex the way you would type its constructors in code. -/
   def showRegex : Regex → String
