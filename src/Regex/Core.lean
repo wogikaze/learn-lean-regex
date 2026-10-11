@@ -184,6 +184,31 @@ this ordinary function — the AST no longer needs a special case.
 def lit : Char → Regex
   | c => Sym (CharSet.single c)
 
+/-- `Semigroup` / `Monoid` は Lean の標準ライブラリにない（Mathlib にある）ので自分で定義する -/
+class Semigroup (α : Type) where
+  op : α → α → α
+
+class Monoid (α : Type) extends Semigroup α where
+  neutral : α
+
+@[instance_reducible] def SeqSemigroup : Semigroup Regex where
+  op := cat
+
+@[instance_reducible] def SeqMonoid : Monoid Regex :=
+  { SeqSemigroup with neutral := Eps }      -- Idris の `using SeqSemigroup`
+
+@[instance_reducible] def AltSemigroup : Semigroup Regex where
+  op := alt
+
+@[instance_reducible] def AltMonoid : Monoid Regex :=
+  { AltSemigroup with neutral := Fail }
+
+/--
+Accept any of the given regexes: fold with the choice monoid.
+`anyOf []` is `Fail` — offered no options, match nothing.
+-/
+def anyOf (rs : List Regex) : Regex := rs.foldr alt Fail
+
 /--
 The Brzozowski derivative: `deriv c r` is the regex matching
 exactly the strings `s` such that `r` matches `c :: s`.
