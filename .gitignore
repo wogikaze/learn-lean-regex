@@ -1,0 +1,5 @@
+# Lake のビルド成果物と依存パッケージ
+/.lake/
+
+# lean-fmt の結果キャッシュ
+/.lean-fmt-cache/

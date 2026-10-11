@@ -1,0 +1,18 @@
+name = "regex"
+version = "0.1.0"
+defaultTargets = ["Regex"]
+
+# Idris の regex.ipkg にあたる
+[[lean_lib]]
+name = "Regex"
+srcDir = "src"
+
+# 以下は Idris の tests/tests.ipkg にあたる
+[[lean_lib]]
+name = "Harness"
+srcDir = "tests/src"
+
+[[lean_exe]]
+name = "tests"
+root = "Main"
+srcDir = "tests/src"

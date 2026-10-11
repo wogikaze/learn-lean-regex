@@ -1,0 +1,15 @@
+{
+  // lean-fmt を Generic LSP Client (zsol.vscode-glspc) 経由で formatter として使う
+  "glspc.server.command": "/home/wogikaze/.local/bin/lean-fmt",
+  "glspc.server.commandArguments": ["lsp", "--root", "/home/wogikaze/wgkz/learn-lean-regex"],
+  "glspc.server.languageId": ["lean4"],
+  "glspc.server.environmentVariables": {
+    "PATH": "/home/wogikaze/.elan/bin:/home/wogikaze/.local/bin:$PATH"
+  },
+  "glspc.server.initializationOptions": { "debounceMs": 150 },
+
+  "[lean4]": {
+    "editor.defaultFormatter": "zsol.vscode-glspc",
+    "editor.formatOnSave": true
+  }
+}
