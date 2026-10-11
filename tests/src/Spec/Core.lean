@@ -26,3 +26,22 @@ def astSpecs : List Spec :=
   , it "different shapes are not equal"
       (star (lit 'a') != cat (lit 'a') (lit 'a'))
   ]
+
+def nullableSpecs : List Spec :=
+  [ shouldBe "fail never matches, so not the empty string either"
+      (nullable fail) false
+  , shouldBe "eps matches exactly the empty string"
+      (nullable eps) true
+  , shouldBe "a literal needs one character, empty is not enough"
+      (nullable (lit 'a')) false
+  , shouldBe "a star matches zero repetitions, i.e. the empty string"
+      (nullable (star (lit 'a'))) true
+  , shouldBe "a sequence is nullable only when both halves are"
+      (nullable (cat eps (star (lit 'a')))) true
+  , shouldBe "a sequence with a non-nullable half is not nullable"
+      (nullable (cat (star (lit 'a')) (lit 'b'))) false
+  , shouldBe "a choice is nullable when either branch is"
+      (nullable (alt (lit 'a') eps)) true
+  , shouldBe "a choice of two literals is not nullable"
+      (nullable (alt (lit 'a') (lit 'b'))) false
+  ]

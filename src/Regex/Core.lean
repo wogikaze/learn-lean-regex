@@ -44,6 +44,14 @@ inductive Regex : Type where
 
 namespace Regex
 
+def nullable : Regex → Bool
+  | fail      => false
+  | eps       => true
+  | lit _   => false
+  | cat l r => nullable l && nullable r
+  | alt l r => nullable l || nullable r
+  | star _  => true
+
 mutual
   /-- Render a regex the way you would type its constructors in code. -/
   def showRegex : Regex → String
