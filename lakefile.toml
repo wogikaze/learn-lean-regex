@@ -21,3 +21,9 @@ globs = ["Spec.+"]
 name = "tests"
 root = "Main"
 srcDir = "tests/src"
+
+# 手で試すための CLI: lake exe regex PATTERN INPUT...
+[[lean_exe]]
+name = "regex"
+root = "RegexCli"
+srcDir = "app"

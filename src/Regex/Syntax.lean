@@ -132,7 +132,7 @@ mutual
 partial def alternation (_ : Unit) : Parser Regex := do
   let first ← sequenceOf ()
   let rest ← many' (char '|' *> sequenceOf ())
-  pure (rest.foldl alt first)
+  pure ((first :: rest).foldl alt Fail )
 /--
   Middle precedence: juxtaposition. Zero atoms is `Eps`,
   which is why the empty pattern compiles.
