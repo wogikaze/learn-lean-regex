@@ -100,6 +100,28 @@ def deriv : Char → Regex → Regex
   | c, alt l r => alt (deriv c l) (deriv c r)
   | c, star r => cat (deriv c r) (star r)
 
+/--
+Does `r` match the whole string `s`?
+
+The entire matching algorithm is one line: fold `deriv` over the
+characters, then ask `nullable` about what is left.
+
+```
+r.matches "abc"
+  = nullable (deriv 'c' (deriv 'b' (deriv 'a' r)))
+```
+
+Each character is consumed exactly once, left to right. There is
+no backtracking to blow up on adversarial input — the number of
+derivative steps is always exactly the length of the string.
+That is the "linear time" in this book's title.
+
+（`matches` は Lean の予約語（`x matches some _` 構文）なので `«»` で囲んで定義する。
+呼び出しはドット記法 `r.matches s` なら `«»` なしで書ける）
+-/
+def «matches» : Regex → String → Bool
+  | r, s => nullable (s.toList.foldl (flip deriv) r)
+
 mutual
   /-- Render a regex the way you would type its constructors in code. -/
   def showRegex : Regex → String

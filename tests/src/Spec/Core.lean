@@ -69,3 +69,44 @@ def derivSpecs : List Spec :=
       (deriv 'b' (cat (star (lit 'a')) (lit 'b')))
       (alt (cat (cat fail (star (lit 'a'))) (lit 'b')) eps)
   ]
+
+/--
+`matches r s` — the whole engine, end to end: derive once per
+character, then ask `nullable`. Full-string semantics.
+
+（`matches` は Lean の予約語なので、呼び出しはドット記法 `r.matches s` で書く）
+-/
+def matchesSpecs : List Spec :=
+  [ it "a literal matches itself"
+      ((lit 'a').matches "a")
+  , it "a literal rejects a different character"
+      (not ((lit 'a').matches "b"))
+  , it "eps matches the empty string"
+      (eps.matches "")
+  , it "matching is exact: 'a' does not match \"ab\""
+      (not ((lit 'a').matches "ab"))
+  , it "a sequence matches its halves in order"
+      ((cat (lit 'a') (lit 'b')).matches "ab")
+  , it "a sequence cares about order"
+      (not ((cat (lit 'a') (lit 'b')).matches "ba"))
+  , it "a choice accepts its left branch"
+      ((alt (lit 'a') (lit 'b')).matches "a")
+  , it "a choice accepts its right branch"
+      ((alt (lit 'a') (lit 'b')).matches "b")
+  , it "a choice rejects anything else"
+      (not ((alt (lit 'a') (lit 'b')).matches "c"))
+  , it "a* matches the empty string"
+      ((star (lit 'a')).matches "")
+  , it "a* matches one repetition"
+      ((star (lit 'a')).matches "a")
+  , it "a* matches many repetitions"
+      ((star (lit 'a')).matches "aaaaaa")
+  , it "a* rejects intruders"
+      (not ((star (lit 'a')).matches "aaba"))
+  , it "(ab)* matches whole pairs only"
+      ((star (cat (lit 'a') (lit 'b'))).matches "abab")
+  , it "(ab)* rejects a dangling half pair"
+      (not ((star (cat (lit 'a') (lit 'b'))).matches "aba"))
+  , it "(a|b)*c — a taste of a real pattern"
+      ((cat (star (alt (lit 'a') (lit 'b'))) (lit 'c')).matches "abbac")
+  ]
