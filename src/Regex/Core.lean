@@ -196,12 +196,12 @@ def deriv : Char → Regex → Regex
   | c, Lit x => if c == x then Eps else Fail
   | c, Cat l r =>
     if nullable l then
-      Alt (Cat (deriv c l) r)   -- the head ate the character...
+      alt (cat (deriv c l) r)   -- the head ate the character...
           (deriv c r)           -- ...or the head vanished and the tail ate it
     else
-      Cat (deriv c l) r
-  | c, Alt l r => Alt (deriv c l) (deriv c r)
-  | c, Star r => Cat (deriv c r) (Star r)
+      cat (deriv c l) r
+  | c, Alt l r => alt (deriv c l) (deriv c r)
+  | c, Star r => cat (deriv c r) (Star r)
 
 /--
 Does `r` match the whole string `s`?
