@@ -17,8 +17,7 @@ functional interfaces:
 A parser of `a`s: consume characters, maybe produce an `a`
 and the unconsumed rest.
 -/
-structure Parser (a : Type) where
-  MkParser ::
+structure Parser (a : Type) where MkParser ::
   runParser : List Char → Option (a × List Char)
 
 /--
@@ -29,6 +28,27 @@ def parse {α : Type} (p : Parser α) (s : String) : Option α :=
   match p.runParser s.toList with
   | some (a, []) => some a
   | _ => none
+
+/-- Consume any single character. -/
+def anyToken : Parser Char :=
+  ⟨fun cs =>
+    match cs with
+    | c :: rest => some (c, rest)
+    | [] => none⟩
+
+/--
+Tie the knot for recursive grammars.
+
+In a lazy language a grammar can refer to itself and nothing
+special happens. Lean (like Idris) evaluates eagerly, so a self-referential
+parser value would try to build itself forever. `recur` accepts
+the parser *lazily* and only looks inside once input arrives.
+
+（Idris の `Lazy (Parser a)` は、Lean では `Unit → Parser α` で表す。
+呼ぶ側は `recur (fun _ => …)` と書く）
+-/
+def recur {α : Type} (p : Unit → Parser α) : Parser α :=
+  ⟨fun cs => (p ()).runParser cs⟩
 
 /-- Consume one character satisfying the predicate. -/
 def satisfy (ok : Char → Bool) : Parser Char :=
@@ -42,10 +62,11 @@ def char (c : Char) : Parser Char :=
   satisfy (· == c)
 
 instance : Functor Parser where
-  map f p := ⟨fun cs =>
-    match p.runParser cs with
-    | some (a, rest) => some (f a, rest)
-    | none => none⟩
+  map f p :=
+    ⟨fun cs =>
+      match p.runParser cs with
+      | some (a, rest) => some (f a, rest)
+      | none => none⟩
 
 /-
 （Lean 版の注記）Idris の `pf <*> pa` は、Lean ではメソッド名 `seq` で定義する。
@@ -53,13 +74,14 @@ instance : Functor Parser where
 -/
 instance : Applicative Parser where
   pure a := ⟨fun cs => some (a, cs)⟩
-  seq pf pa := ⟨fun cs =>
-    match pf.runParser cs with
-    | none => none
-    | some (f, rest) =>
-      match (pa ()).runParser rest with
+  seq pf pa :=
+    ⟨fun cs =>
+      match pf.runParser cs with
       | none => none
-      | some (a, rest') => some (f a, rest')⟩
+      | some (f, rest) =>
+        match (pa ()).runParser rest with
+        | none => none
+        | some (a, rest') => some (f a, rest')⟩
 
 /-
 （Lean 版の注記）Lean の `Monad` は `Applicative` を `extends` しているので、
@@ -68,10 +90,11 @@ instance : Applicative Parser where
 -/
 instance : Monad Parser :=
   { (inferInstance : Applicative Parser) with
-    bind p f := ⟨fun cs =>
-      match p.runParser cs with
-      | none => none
-      | some (a, rest) => (f a).runParser rest⟩ }
+    bind p f :=
+      ⟨fun cs =>
+        match p.runParser cs with
+        | none => none
+        | some (a, rest) => (f a).runParser rest⟩ }
 
 /-
 （Lean 版の注記）Idris の `empty` は `failure`、`p <|> q` は `orElse` で定義する。
@@ -80,32 +103,33 @@ instance : Monad Parser :=
 instance : Alternative Parser :=
   { (inferInstance : Applicative Parser) with
     failure := ⟨fun _ => none⟩
-    orElse p q := ⟨fun cs =>
-      match p.runParser cs with
-      | some res => some res
-      | none => (q ()).runParser cs⟩ }
+    orElse p q :=
+      ⟨fun cs =>
+        match p.runParser cs with
+        | some res => some res
+        | none => (q ()).runParser cs⟩ }
 
 /-- `partial def` は戻り値の型に「とりあえずの値」を要求するので、必ず失敗するパーサを用意する。 -/
-instance {α : Type} : Inhabited (Parser α) := ⟨failure⟩
+instance {α : Type} : Inhabited (Parser α) :=
+  ⟨failure⟩
 
 mutual
-  /--
+/--
   Zero or more occurrences. (`many' p` can call itself forever if
   `p` succeeds without consuming, so Lean will not certify it
   total — we own up to that with `partial`.)
 
   （Lean 版の注記）`many` / `some` は `Option.some` などと名前がぶつかるので `many'` / `some'` にしている。
   -/
-  partial def many' {α : Type} (p : Parser α) : Parser (List α) :=
-    some' p <|> pure []
-
-  /--
+partial def many' {α : Type} (p : Parser α) : Parser (List α) :=
+  some' p <|> pure []
+/--
   One or more occurrences: cons the first result onto the rest.
   （Idris のイディオムブラケット `[| p :: many p |]` は、Lean では
   `List.cons <$> p <*> many' p` と展開して書く）
   -/
-  partial def some' {α : Type} (p : Parser α) : Parser (List α) :=
-    List.cons <$> p <*> many' p
+partial def some' {α : Type} (p : Parser α) : Parser (List α) :=
+  List.cons <$> p <*> many' p
 end
 
 /--
@@ -118,5 +142,4 @@ def natural : Parser Nat :=
   digitsToNat <$> some' (satisfy Char.isDigit)
 where
   digitVal (c : Char) : Nat := c.toNat - '0'.toNat
-  digitsToNat (cs : List Char) : Nat :=
-    cs.foldl (fun acc c => 10 * acc + digitVal c) 0
+  digitsToNat (cs : List Char) : Nat := cs.foldl (fun acc c => 10 * acc + digitVal c) 0
