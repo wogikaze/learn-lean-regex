@@ -20,4 +20,4 @@ def sanitySpecs : List Spec :=
   , shouldBe "strings concatenate" ("fun" ++ "ctional") "functional"
   ]
 
-def main : IO Unit := runSpecs (sanitySpecs ++ astSpecs)
+def main : IO Unit := runSpecs (sanitySpecs ++ astSpecs ++ nullableSpecs)

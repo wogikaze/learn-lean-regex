@@ -27,6 +27,7 @@ def astSpecs : List Spec :=
       (star (lit 'a') != cat (lit 'a') (lit 'a'))
   ]
 
+/-- `nullable r` answers one question: does `r` match the empty string? -/
 def nullableSpecs : List Spec :=
   [ shouldBe "fail never matches, so not the empty string either"
       (nullable fail) false

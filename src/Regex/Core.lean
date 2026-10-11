@@ -44,13 +44,30 @@ inductive Regex : Type where
 
 namespace Regex
 
+/--
+Does this regex match the empty string?
+
+This tiny function is one half of the whole matching algorithm
+(the other half is `deriv`). Read each line as a fact about the
+empty string:
+
+- `fail` matches nothing, so certainly not the empty string.
+- `eps` is *defined* as matching the empty string.
+- A literal needs one real character.
+- A sequence matches "" only if both halves can match "".
+- A choice matches "" if either branch does.
+- A star matches zero repetitions, which is exactly "".
+
+There is no algorithm here to memorize — the function is just the
+definition of "matches the empty string", written case by case.
+-/
 def nullable : Regex → Bool
-  | fail      => false
-  | eps       => true
-  | lit _   => false
+  | fail => false
+  | eps => true
+  | lit _ => false
   | cat l r => nullable l && nullable r
   | alt l r => nullable l || nullable r
-  | star _  => true
+  | star _ => true
 
 mutual
   /-- Render a regex the way you would type its constructors in code. -/
