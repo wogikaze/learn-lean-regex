@@ -1,5 +1,4 @@
 import Harness
-import Regex
 import Regex.Pretty
 
 /-!

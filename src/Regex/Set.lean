@@ -14,8 +14,7 @@ A set of characters, described by ranges and a negation flag.
 - `MkSet true  [('0','9')]` is the class `[^0-9]`.
 - `MkSet true  []` negates the empty set: *every* character.
 -/
-structure CharSet where
-  MkSet ::
+structure CharSet where MkSet ::
   /-- When true, the set is "every character NOT in the ranges". -/
   negated : Bool
   /-- Inclusive ranges; a single character is a one-element range. -/
@@ -64,7 +63,8 @@ def oneOf : String → CharSet
 Every character — the wildcard `.` (we allow it to match
 newlines; single-line mode is all we need).
 -/
-def anyChar : CharSet := MkSet true []
+def anyChar : CharSet :=
+  MkSet true []
 
 /--
 Everything *except* the members of the given set: `[^...]`.
@@ -76,12 +76,15 @@ def complement : CharSet → CharSet
   | MkSet neg rs => MkSet (not neg) rs
 
 /-- The digits `0-9` — the escape `\d`. -/
-def digit : CharSet := range '0' '9'
+def digit : CharSet :=
+  range '0' '9'
 
 /-- Letters, digits and underscore — the escape `\w`. -/
-def word : CharSet := MkSet false [('a', 'z'), ('A', 'Z'), ('0', '9'), ('_', '_')]
+def word : CharSet :=
+  MkSet false [('a', 'z'), ('A', 'Z'), ('0', '9'), ('_', '_')]
 
 /-- Whitespace — the escape `\s`. -/
-def space : CharSet := oneOf " \t\r\n"
+def space : CharSet :=
+  oneOf " \t\r\n"
 
 end CharSet

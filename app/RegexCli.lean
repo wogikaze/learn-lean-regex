@@ -17,7 +17,7 @@ open Regex
 
 def usage : String :=
   "usage: lake exe regex PATTERN INPUT...\n" ++
-  "  e.g. lake exe regex '(colou?r|gr[ae]y)' color grey \"a grey wall\""
+    "  e.g. lake exe regex '(colou?r|gr[ae]y)' color grey \"a grey wall\""
 
 /-- One line of output per input: the input, then both verdicts. -/
 def report (r : Regex) (input : String) : String :=

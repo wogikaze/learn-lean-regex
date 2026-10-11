@@ -59,10 +59,8 @@ instance {ε α : Type} [BEq ε] [BEq α] : BEq (Except ε α) where
 
 /-- Render one spec as a report line. Pure: no printing happens here. -/
 def render (spec : Spec) : String :=
-  if spec.passed then
-    "  ok    " ++ spec.description
-  else
-    "  FAIL  " ++ spec.description ++ "\n        " ++ spec.details
+  if spec.passed then "  ok    " ++ spec.description
+  else "  FAIL  " ++ spec.description ++ "\n        " ++ spec.details
 
 /--
 Run a whole suite: print every line, then a summary, and exit

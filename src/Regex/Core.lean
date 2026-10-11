@@ -54,23 +54,22 @@ inductive Regex : Type where
 namespace Regex
 
 mutual
-  /-- Render a regex the way you would type its constructors in code. -/
-  def showRegex : Regex → String
-    | Fail => "Fail"
-    | Eps => "Eps"
-    | Sym s => "Sym (" ++ toString s ++ ")"
-    | Cat l r => "Cat " ++ showArg l ++ " " ++ showArg r
-    | Alt l r => "Alt " ++ showArg l ++ " " ++ showArg r
-    | Star r => "Star " ++ showArg r
-  termination_by r => (r, 0)
-
-  /-- Constructor arguments need parentheses — except the ones that
+/-- Render a regex the way you would type its constructors in code. -/
+def showRegex : Regex → String
+  | Fail => "Fail"
+  | Eps => "Eps"
+  | Sym s => "Sym (" ++ toString s ++ ")"
+  | Cat l r => "Cat " ++ showArg l ++ " " ++ showArg r
+  | Alt l r => "Alt " ++ showArg l ++ " " ++ showArg r
+  | Star r => "Star " ++ showArg r
+termination_by r => (r, 0)
+/-- Constructor arguments need parentheses — except the ones that
   have no arguments of their own. -/
-  def showArg : Regex → String
-    | Fail => "Fail"
-    | Eps => "Eps"
-    | r => "(" ++ showRegex r ++ ")"
-  termination_by r => (r, 1)
+def showArg : Regex → String
+  | Fail => "Fail"
+  | Eps => "Eps"
+  | r => "(" ++ showRegex r ++ ")"
+termination_by r => (r, 1)
 end
 
 /--
@@ -191,23 +190,28 @@ class Semigroup (α : Type) where
 class Monoid (α : Type) extends Semigroup α where
   neutral : α
 
-@[instance_reducible] def SeqSemigroup : Semigroup Regex where
+@[instance_reducible]
+def SeqSemigroup : Semigroup Regex where
   op := cat
 
-@[instance_reducible] def SeqMonoid : Monoid Regex :=
-  { SeqSemigroup with neutral := Eps }      -- Idris の `using SeqSemigroup`
+@[instance_reducible]
+def SeqMonoid : Monoid Regex :=
+  { SeqSemigroup with neutral := Eps } -- Idris の `using SeqSemigroup`
 
-@[instance_reducible] def AltSemigroup : Semigroup Regex where
+@[instance_reducible]
+def AltSemigroup : Semigroup Regex where
   op := alt
 
-@[instance_reducible] def AltMonoid : Monoid Regex :=
+@[instance_reducible]
+def AltMonoid : Monoid Regex :=
   { AltSemigroup with neutral := Fail }
 
 /--
 Accept any of the given regexes: fold with the choice monoid.
 `anyOf []` is `Fail` — offered no options, match nothing.
 -/
-def anyOf (rs : List Regex) : Regex := rs.foldr alt Fail
+def anyOf (rs : List Regex) : Regex :=
+  rs.foldr alt Fail
 
 /--
 The Brzozowski derivative: `deriv c r` is the regex matching
@@ -233,10 +237,9 @@ def deriv : Char → Regex → Regex
   | c, Sym s => if CharSet.member c s then Eps else Fail
   | c, Cat l r =>
     if nullable l then
-      alt (cat (deriv c l) r)   -- the head ate the character...
-          (deriv c r)           -- ...or the head vanished and the tail ate it
-    else
-      cat (deriv c l) r
+      alt (cat (deriv c l) r) -- the head ate the character...
+        (deriv c r) -- ...or the head vanished and the tail ate it
+    else cat (deriv c l) r
   | c, Alt l r => alt (deriv c l) (deriv c r)
   | c, Star r => cat (deriv c r) (Star r)
 

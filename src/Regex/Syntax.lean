@@ -29,7 +29,10 @@ open CharSet
 
 namespace Syntax
 
-/-- Characters that mean something special outside a class. -/
+/--
+Characters that mean something special outside a class.
+(Public so the pretty-printer knows what to escape.)
+-/
 def isMeta (c : Char) : Bool :=
   "()[]{}|*+?.\\".toList.elem c
 
@@ -128,11 +131,16 @@ def postfix' : Parser (Regex → Regex) :=
 文法規則は `Unit` を受け取る関数にして、`alternation ()` のように呼ぶ。
 -/
 mutual
-/-- Lowest precedence: sequences separated by `|`. -/
+/--
+Lowest precedence: sequences separated by `|`.
+Folded to the right, like concatenation — a consistent shape
+keeps the pretty-printer's roundtrip exact. (`alt x Fail` is
+`x`, so the trailing `Fail` seed leaves no junk behind.)
+-/
 partial def alternation (_ : Unit) : Parser Regex := do
   let first ← sequenceOf ()
   let rest ← many' (char '|' *> sequenceOf ())
-  pure ((first :: rest).foldl alt Fail )
+  pure ((first :: rest).foldr alt Fail)
 /--
   Middle precedence: juxtaposition. Zero atoms is `Eps`,
   which is why the empty pattern compiles.
