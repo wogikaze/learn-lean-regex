@@ -4,6 +4,11 @@ The heart of the engine.
 This module will grow, test by test, into a complete regular
 expression matcher based on Brzozowski derivatives.
 
+The big idea of this whole project: a regular expression is not a
+string, and not a state machine — it is a *tree of data*. Every
+operation we will ever need (matching included!) is a plain
+function that walks this tree.
+
 （Idris の `%default total` は Lean では書かなくてよい。`def` は最初から全域性を検査する）
 -/
 
@@ -44,6 +49,58 @@ inductive Regex : Type where
 
 namespace Regex
 
+mutual
+  /-- Render a regex the way you would type its constructors in code. -/
+  def showRegex : Regex → String
+    | Fail => "Fail"
+    | Eps => "Eps"
+    | Lit c => "Lit " ++ reprStr c
+    | Cat l r => "Cat " ++ showArg l ++ " " ++ showArg r
+    | Alt l r => "Alt " ++ showArg l ++ " " ++ showArg r
+    | Star r => "Star " ++ showArg r
+  termination_by r => (r, 0)
+
+  /-- Constructor arguments need parentheses — except the ones that
+  have no arguments of their own. -/
+  def showArg : Regex → String
+    | Fail => "Fail"
+    | Eps => "Eps"
+    | r => "(" ++ showRegex r ++ ")"
+  termination_by r => (r, 1)
+end
+
+/--
+Regexes can be printed. `ToString` is a *type class* (Idris: an
+interface; Haskell: a type class; Rust: a trait) and this block is
+our instance of it for `Regex`. `Repr` is what `#eval` and the
+harness's `shouldBe` use, so we give it the same rendering.
+-/
+instance : ToString Regex where
+  toString := showRegex
+
+instance : Repr Regex where
+  reprPrec r _ := showRegex r
+
+/--
+Structural equality: two regexes are equal when they are built
+from exactly the same constructors in the same shape.
+
+Note this is equality of *syntax*, not of *meaning*:
+`Alt (Lit 'a') (Lit 'a')` and `Lit 'a'` match the same strings
+but are not `==`.
+-/
+def beq : Regex → Regex → Bool
+  | Fail, Fail => true
+  | Eps, Eps => true
+  | Lit c, Lit d => c == d
+  | Cat l1 r1, Cat l2 r2 => beq l1 l2 && beq r1 r2
+  | Alt l1 r1, Alt l2 r2 => beq l1 l2 && beq r1 r2
+  | Star r1, Star r2 => beq r1 r2
+  | _, _ => false
+
+instance : BEq Regex where
+  beq := Regex.beq
+
 /--
 Does this regex match the empty string?
 
@@ -69,13 +126,51 @@ def nullable : Regex → Bool
   | Alt l r => nullable l || nullable r
   | Star _ => true
 
+/--
+Sequence two regexes — but simplify the obvious cases.
 
+These "smart constructors" use two bits of regex algebra:
+
+- `Fail` is *absorbing*: nothing followed by anything is nothing.
+- `Eps` is the *identity*: the empty string followed by `r` is `r`.
+
+Why bother? `deriv` builds new regexes out of old ones, and
+without simplification the results grow junk like
+`Alt (Cat Fail r) Eps` at every step. Simplifying while building
+keeps every derivative small — which is what makes the engine
+fast in practice, not just in theory.
+-/
 def cat : Regex → Regex → Regex
   | Fail, _ => Fail
   | _, Fail => Fail
   | Eps, r => r
   | r, Eps => r
   | l, r => Cat l r
+
+/--
+Choose between two regexes — but simplify the obvious cases.
+
+`Fail` is the identity of choice (an impossible branch can be
+dropped), and choosing between two identical regexes is no
+choice at all.
+-/
+def alt : Regex → Regex → Regex
+  | Fail, r => r
+  | l, Fail => l
+  | l, r => if l == r then l else Alt l r
+
+/--
+Repeat a regex — but simplify the obvious cases.
+
+Repeating the impossible (or the empty string) zero-or-more
+times can only ever produce the empty string, and a double star
+adds nothing a single star does not.
+-/
+def star : Regex → Regex
+  | Fail => Eps
+  | Eps => Eps
+  | Star r => Star r
+  | r => Star r
 
 /--
 The Brzozowski derivative: `deriv c r` is the regex matching
@@ -129,57 +224,5 @@ That is the "linear time" in this book's title.
 -/
 def «matches» : Regex → String → Bool
   | r, s => nullable (s.toList.foldl (flip deriv) r)
-
-mutual
-  /-- Render a regex the way you would type its constructors in code. -/
-  def showRegex : Regex → String
-    | Fail => "Fail"
-    | Eps => "Eps"
-    | Lit c => "Lit " ++ reprStr c
-    | Cat l r => "Cat " ++ showArg l ++ " " ++ showArg r
-    | Alt l r => "Alt " ++ showArg l ++ " " ++ showArg r
-    | Star r => "Star " ++ showArg r
-  termination_by r => (r, 0)
-
-  /-- Constructor arguments need parentheses — except the ones that
-  have no arguments of their own. -/
-  def showArg : Regex → String
-    | Fail => "Fail"
-    | Eps => "Eps"
-    | r => "(" ++ showRegex r ++ ")"
-  termination_by r => (r, 1)
-end
-
-/--
-Regexes can be printed. `ToString` is a *type class* (Idris: an
-interface; Rust: a trait) and this block is our instance of it for `Regex`.
-`Repr` is what `#eval` and the harness's `shouldBe` use, so we give it
-the same rendering.
--/
-instance : ToString Regex where
-  toString := showRegex
-
-instance : Repr Regex where
-  reprPrec r _ := showRegex r
-
-/--
-Structural equality: two regexes are equal when they are built
-from exactly the same constructors in the same shape.
-
-Note this is equality of *syntax*, not of *meaning*:
-`Alt (Lit 'a') (Lit 'a')` and `Lit 'a'` match the same strings
-but are not `==`.
--/
-def beq : Regex → Regex → Bool
-  | Fail, Fail => true
-  | Eps, Eps => true
-  | Lit c, Lit d => c == d
-  | Cat l1 r1, Cat l2 r2 => beq l1 l2 && beq r1 r2
-  | Alt l1 r1, Alt l2 r2 => beq l1 l2 && beq r1 r2
-  | Star r1, Star r2 => beq r1 r2
-  | _, _ => false
-
-instance : BEq Regex where
-  beq := Regex.beq
 
 end Regex
