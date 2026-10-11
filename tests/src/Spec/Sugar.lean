@@ -3,6 +3,14 @@ import Regex.Core
 import Regex.Set
 import Regex.Sugar
 
+/-!
+Specs for `Regex.Sugar` — the convenience layer.
+
+`+`, `?`, `{n,m}` and string literals add no new matching power:
+they are ordinary functions that *compile down* to the six core
+constructors. Sugar is cheap when it is just functions.
+-/
+
 open Harness
 open Regex
 open CharSet
