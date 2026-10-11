@@ -1,5 +1,4 @@
 import Regex.Core
-import Regex.Set
 
 /-!
 The convenience layer: `+`, `?`, `{n,m}` and string literals.
@@ -38,7 +37,7 @@ are one `r` followed by `k` more.
 -/
 def exactly : Nat → Regex → Regex
   | 0, _ => Eps
-  | (k+1), r => cat r (exactly k r)
+  | (k + 1), r => cat r (exactly k r)
 
 /-- At least `n` repetitions: `r{n,}` is `n` copies, then `r*`. -/
 def atLeast : Nat → Regex → Regex
@@ -52,7 +51,7 @@ repetition is only allowed after the previous one appeared.
 -/
 private def upTo : Nat → Regex → Regex
   | 0, _ => Eps
-  | (k+1), r => opt (cat r (upTo k r))
+  | (k + 1), r => opt (cat r (upTo k r))
 
 /--
 Between `n` and `m` repetitions: `r{n,m}` is `n` required copies

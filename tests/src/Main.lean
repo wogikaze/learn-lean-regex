@@ -1,8 +1,8 @@
-import Harness
+import Spec.Api
 import Spec.Core
+import Spec.Parse
 import Spec.Set
 import Spec.Sugar
-import Spec.Parse
 import Spec.Syntax
 
 /-!
@@ -19,9 +19,15 @@ Sanity checks for the harness itself — the very first red/green
 cycle of this project was making these pass.
 -/
 def sanitySpecs : List Spec :=
-  [ it "true is true" true
-  , shouldBe "one plus one is two" (1 + 1) 2
-  , shouldBe "strings concatenate" ("fun" ++ "ctional") "functional"
-  ]
+  [it "true is true" true, shouldBe "one plus one is two" (1 + 1) 2,
+    shouldBe "strings concatenate" ("fun" ++ "ctional") "functional"]
 
-def main : IO Unit := runSpecs (sanitySpecs ++ astSpecs ++ nullableSpecs ++ derivSpecs ++ matchesSpecs ++ smartSpecs ++ setSpecs ++ symSpecs ++ sugarSpecs ++ parseSpecs ++ syntaxSpecs)
+def main : IO Unit :=
+  runSpecs
+    (sanitySpecs ++ astSpecs ++ nullableSpecs ++ derivSpecs ++ matchesSpecs ++ smartSpecs ++
+      setSpecs ++
+      symSpecs ++
+      sugarSpecs ++
+      parseSpecs ++
+      syntaxSpecs ++
+      apiSpecs)

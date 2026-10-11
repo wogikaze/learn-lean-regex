@@ -1,7 +1,5 @@
-import Regex.Core
-import Regex.Set
-import Regex.Sugar
 import Regex.Parse
+import Regex.Sugar
 
 /-!
 From pattern strings to the AST.
@@ -161,6 +159,13 @@ where
 partial def group (_ : Unit) : Parser Regex :=
   char '(' *> recur (fun _ => alternation ()) <* char ')'
 end
+
+/--
+The whole grammar as a single parser, for callers that want to
+run it themselves (the `Regex` module does, to report positions).
+-/
+def patternParser : Parser Regex :=
+  alternation ()
 
 /--
 Compile a pattern string into a regex — or `none` when the

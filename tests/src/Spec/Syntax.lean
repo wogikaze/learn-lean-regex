@@ -1,7 +1,4 @@
 import Harness
-import Regex.Core
-import Regex.Set
-import Regex.Parse
 import Regex.Syntax
 
 /-!

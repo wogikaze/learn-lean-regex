@@ -47,6 +47,16 @@ shouldBe "one plus one" (1 + 1) 2
 def shouldBe {α : Type} [Repr α] [BEq α] (desc : String) (actual expected : α) : Spec :=
   ⟨desc, actual == expected, s!"expected {reprStr expected}, got {reprStr actual}"⟩
 
+/--
+`Except` has no `BEq` instance in Lean's core library (Idris' `Either` has `Eq`).
+`shouldBe` needs one to compare results like `compile "ab)"`.
+-/
+instance {ε α : Type} [BEq ε] [BEq α] : BEq (Except ε α) where
+  beq
+    | .ok a, .ok b => a == b
+    | .error e, .error f => e == f
+    | _, _ => false
+
 /-- Render one spec as a report line. Pure: no printing happens here. -/
 def render (spec : Spec) : String :=
   if spec.passed then
