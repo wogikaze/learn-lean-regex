@@ -151,16 +151,36 @@ def cat : Regex → Regex → Regex
   | l, r => Cat l r
 
 /--
-Choose between two regexes — but simplify the obvious cases.
-
-`Fail` is the identity of choice (an impossible branch can be
-dropped), and choosing between two identical regexes is no
-choice at all.
+Flatten an Alt-spine into the list of its alternatives.
+`Fail` contributes nothing — it is the identity of choice.
 -/
-def alt : Regex → Regex → Regex
-  | Fail, r => r
-  | l, Fail => l
-  | l, r => if l == r then l else Alt l r
+def altList : Regex → List Regex
+  | Alt l r => altList l ++ altList r
+  | Fail => []
+  | r => [r]
+
+/-- Rebuild a (deduplicated) list of alternatives into a regex. -/
+def rebuildAlt : List Regex → Regex
+  | [] => Fail
+  | [r] => r
+  | r :: rs => Alt r (rebuildAlt rs)
+
+/--
+Choose between two regexes — but normalize while building.
+
+Naively, `alt` only needs to drop `Fail` branches and collapse
+`alt r r` to `r`. That version worked — until the benchmark
+chapter, where deriving `(a?){n}a{n}` grew choices like
+`Alt x (Alt y (Alt x ...))`: the duplicate `x` hides deep in the
+spine where a shallow equality check never sees it, and memory
+runs out. So we normalize properly: flatten every choice into a
+list, drop duplicates wherever they sit, and rebuild. Brzozowski
+knew this in 1964; we rediscovered it with `make bench`.
+
+（Idris の `nub` は Lean では `List.eraseDups`。比較には `BEq Regex` が使われる）
+-/
+def alt (l r : Regex) : Regex :=
+  rebuildAlt (altList l ++ altList r).eraseDups
 
 /--
 Repeat a regex — but simplify the obvious cases.
@@ -212,6 +232,18 @@ Accept any of the given regexes: fold with the choice monoid.
 -/
 def anyOf (rs : List Regex) : Regex :=
   rs.foldr alt Fail
+
+/--
+The number of constructors in a regex — the measuring stick for
+claims like "derivatives stay small".
+-/
+def size : Regex → Nat
+  | Fail => 1
+  | Eps => 1
+  | Sym _ => 1
+  | Cat l r => size l + size r + 1
+  | Alt l r => size l + size r + 1
+  | Star r => size r + 1
 
 /--
 The Brzozowski derivative: `deriv c r` is the regex matching

@@ -88,6 +88,11 @@ def smartSpecs : List Spec :=
     shouldBe "a choice against Fail picks the live branch (right)" (alt (lit 'a') Fail) (lit 'a'),
     shouldBe "identical branches collapse" (alt (lit 'a') (lit 'a')) (lit 'a'),
     shouldBe "anything else still nests as Alt" (alt (lit 'a') (lit 'b')) (Alt (lit 'a') (lit 'b')),
+    shouldBe "alternatives flatten and drop duplicates"
+      (alt (Alt (lit 'a') (lit 'b')) (Alt (lit 'b') (lit 'c')))
+      (Alt (lit 'a') (Alt (lit 'b') (lit 'c'))),
+    shouldBe "duplicates hiding on the right are found too"
+      (alt (lit 'a') (Alt (lit 'b') (lit 'a'))) (Alt (lit 'a') (lit 'b')),
     shouldBe "the star of Fail can only match the empty string" (star Fail) Eps,
     shouldBe "the star of Eps is just Eps" (star Eps) Eps,
     shouldBe "a double star collapses to a single one" (star (Star (lit 'a'))) (Star (lit 'a')),

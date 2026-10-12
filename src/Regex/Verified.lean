@@ -14,6 +14,7 @@ regexes, and their test runner is the type checker.
 set_option warningAsError true
 open Regex
 
+-- lean-fmt: format-ignore-next
 /--
 Evidence that the regex `r` matches the character list `cs`.
 
@@ -47,8 +48,7 @@ inductive Matches : Regex → List Char → Prop where
   ...or one non-empty repetition followed by more star. The
   non-emptiness (`c ::`) is what keeps derivations finite.
   -/
-  |
-  MStarS {r : Regex} {c : Char} {xs ys : List Char} :
+  | MStarS {r : Regex} {c : Char} {xs ys : List Char} :
     Matches r (c :: xs) → Matches (Star r) ys → Matches (Star r) (c :: (xs ++ ys))
 
 -- Note what is NOT here: no constructor mentions Fail. `Fail`

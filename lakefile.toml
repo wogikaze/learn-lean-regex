@@ -27,3 +27,9 @@ srcDir = "tests/src"
 name = "regex"
 root = "RegexCli"
 srcDir = "app"
+
+# Idris の bench/bench.ipkg にあたる: make bench
+[[lean_exe]]
+name = "bench"
+root = "Bench"
+srcDir = "bench/src"
