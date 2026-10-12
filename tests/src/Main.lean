@@ -2,6 +2,7 @@ import Spec.Anchor
 import Spec.Api
 import Spec.Capture
 import Spec.Core
+import Spec.DerivCorrect
 import Spec.Dfa
 import Spec.Lex
 import Spec.Naive
@@ -52,4 +53,5 @@ def main : IO Unit :=
       captureSpecs ++
       dfaSpecs ++
       unicodeSpecs ++
-      parseErrorSpecs)
+      parseErrorSpecs ++
+      derivProofSpecs)
