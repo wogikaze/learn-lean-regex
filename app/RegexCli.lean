@@ -1,4 +1,4 @@
-import Regex
+import Regex.Search
 
 /-!
 A tiny command-line front end for trying the engine by hand.
@@ -8,7 +8,8 @@ lake exe regex PATTERN INPUT...
 ```
 
 For each INPUT it reports whether the pattern matches the whole
-string (`match`) and whether it occurs anywhere inside (`contains`).
+string (`match`), whether it occurs anywhere inside (`contains`),
+and where the leftmost-longest match is (`find`).
 A malformed pattern is reported with its position, and the exit code
 is 2.
 -/
@@ -22,7 +23,11 @@ def usage : String :=
 /-- One line of output per input: the input, then both verdicts. -/
 def report (p : Pattern) (input : String) : String :=
   let yesNo (b : Bool) := if b then "yes" else "no "
-  s!"  {repr input}\n    match:    {yesNo (p.match input)}\n    contains: {yesNo (p.contains input)}"
+  let found :=
+    match p.find? input with
+    | some m => s!"[{m.start}, {m.stop}) {repr m.text}"
+    | none => "none"
+  s!"  {repr input}\n    match:    {yesNo (p.match input)}\n    contains: {yesNo (p.contains input)}\n    find:     {found}"
 
 def main (args : List String) : IO UInt32 := do
   match args with

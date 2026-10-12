@@ -5,6 +5,7 @@ import Spec.Lex
 import Spec.Naive
 import Spec.Parse
 import Spec.Pretty
+import Spec.Search
 import Spec.Set
 import Spec.Sugar
 import Spec.Syntax
@@ -40,4 +41,5 @@ def main : IO Unit :=
       verifiedSpecs ++
       naiveSpecs ++
       lexSpecs ++
-      anchorSpecs)
+      anchorSpecs ++
+      searchSpecs)
