@@ -19,10 +19,12 @@ only reuses sub-terms — so the intervals computed from the start regex
 serve every state. These are the "derivative classes" of Owens, Reppy
 and Turon.
 
-Finiteness. Brzozowski's theorem needs derivatives normalized up to
-associativity, commutativity and idempotence of `|`. Our `alt` flattens
-and deduplicates but keeps order (no commutativity), so as a safety net
-`build` gives up after `maxStates` states and returns `none`.
+Finiteness. Brzozowski's theorem says a regex has finitely many
+derivatives up to associativity, commutativity and idempotence of `|`.
+`deriv` builds every choice with `altN`, which normalizes exactly that
+(flatten, deduplicate, sort), so the theorem's premise holds. The state
+count can still be large (exponential in the pattern, in the worst
+case), so `build` keeps a cap: past `maxStates` states it returns `none`.
 -/
 
 open Regex

@@ -40,4 +40,11 @@ def dfaSpecs : List Spec :=
       | some d => d.stateCount < 100 && d.matches (String.ofList (List.replicate 20 'a'))
       | none => false),
     shouldBe "a regex distinguishes only a few classes of characters" (boundaries (lit 'a'))
-      #[0, 97, 98]]
+      #[0, 97, 98],
+    it "commutativity: deriving a|b and b|a gives the very same tree"
+      (deriv 'x' (Alt (Cat (lit 'x') (lit 'a')) (Cat (lit 'x') (lit 'b'))) ==
+        deriv 'x' (Alt (Cat (lit 'x') (lit 'b')) (Cat (lit 'x') (lit 'a')))),
+    shouldBe "commutativity merges states: (a*b|b*a)* needs 8, not 12"
+      ((dfaOf "(a*b|b*a)*").map Dfa.stateCount) (some 8),
+    shouldBe "the user's order survives compile: only deriv sorts" (compile "b|a")
+      (.ok (Alt (lit 'b') (lit 'a')))]

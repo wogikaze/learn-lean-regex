@@ -105,6 +105,23 @@ instance : BEq Regex where
   beq := Regex.beq
 
 /--
+A total order on character sets: by the negation flag, then range by range.
+(`List (Char × Char)` has no `Ord` instance of its own, so we compare by hand.)
+-/
+def compareRanges : List (Char × Char) → List (Char × Char) → Ordering
+  | [], [] => .eq
+  | [], _ => .lt
+  | _, [] => .gt
+  | (a, b) :: xs, (c, d) :: ys => (compare a c).then ((compare b d).then (compareRanges xs ys))
+
+instance : Ord CharSet where
+  compare s t := (compare s.negated t.negated).then (compareRanges s.ranges t.ranges)
+
+-- A total order on regexes (derived: by constructor, then by the parts).
+-- `altN` sorts alternatives with it, which is what makes choice commutative.
+deriving instance Ord for Regex
+
+/--
 Does this regex match the empty string?
 
 This tiny function is one half of the whole matching algorithm
@@ -181,6 +198,21 @@ knew this in 1964; we rediscovered it with `make bench`.
 -/
 def alt (l r : Regex) : Regex :=
   rebuildAlt (altList l ++ altList r).eraseDups
+
+/--
+Choose between two regexes, normalizing up to associativity, commutativity
+*and* idempotence (ACI): flatten, deduplicate, and sort into a fixed order,
+so `l|r` and `r|l` become the same tree.
+
+Brzozowski's theorem says the derivatives of a regex are finite in number
+*up to ACI of choice*. `alt` keeps the order the user wrote (so `compile`
+builds the trees the book's specs expect, and `toPattern` prints them
+back faithfully); only `deriv` — whose trees are engine states nobody
+reads — uses `altN`. With it, the theorem's premise holds for every
+derivative we build.
+-/
+def altN (l r : Regex) : Regex :=
+  rebuildAlt ((altList l ++ altList r).eraseDups.mergeSort fun a b => compare a b != .gt)
 
 /--
 Repeat a regex — but simplify the obvious cases.
@@ -269,10 +301,10 @@ def deriv : Char → Regex → Regex
   | c, Sym s => if CharSet.member c s then Eps else Fail
   | c, Cat l r =>
     if nullable l then
-      alt (cat (deriv c l) r) -- the head ate the character...
+      altN (cat (deriv c l) r) -- the head ate the character...
         (deriv c r) -- ...or the head vanished and the tail ate it
     else cat (deriv c l) r
-  | c, Alt l r => alt (deriv c l) (deriv c r)
+  | c, Alt l r => altN (deriv c l) (deriv c r)
   | c, Star r => cat (deriv c r) (Star r)
 
 /--

@@ -13,9 +13,9 @@ and therefore the whole engine is correct:
 r.matches s = true ↔ Matches r s.toList
 ```
 
-Our `deriv` builds with the smart constructors `cat` and `alt`, and
-`alt` normalizes (flatten + deduplicate with `==`). So the proof needs
-three layers:
+Our `deriv` builds with the smart constructors `cat` and `altN`, and
+`altN` normalizes (flatten, deduplicate with `==`, sort). So the proof
+needs three layers:
 
 1. `==` on `CharSet` and `Regex` is real equality (`LawfulBEq`), so
    deduplication never drops a branch that is not truly a duplicate.
@@ -164,6 +164,22 @@ theorem matches_smart_alt {l r : Regex} {cs : List Char} :
     · exact ⟨x, .inl hx, h⟩
     · exact ⟨x, .inr hx, h⟩
 
+/--
+`altN` also sorts the alternatives (commutativity) — sorting is a
+permutation, so it keeps the same members, and still means "`l` or `r`".
+-/
+theorem matches_smart_altN {l r : Regex} {cs : List Char} :
+    Matches (altN l r) cs ↔ Matches l cs ∨ Matches r cs := by
+  simp only [altN, matches_rebuildAlt, List.mem_mergeSort, List.mem_eraseDups, List.mem_append,
+    matches_altList l cs, matches_altList r cs]
+  constructor
+  · rintro ⟨x, hx | hx, h⟩
+    · exact .inl ⟨x, hx, h⟩
+    · exact .inr ⟨x, hx, h⟩
+  · rintro (⟨x, hx, h⟩ | ⟨x, hx, h⟩)
+    · exact ⟨x, .inl hx, h⟩
+    · exact ⟨x, .inr hx, h⟩
+
 /-! ### 4. The boss: `deriv` is correct -/
 
 /--
@@ -186,7 +202,7 @@ theorem deriv_iff (c : Char) (r : Regex) (cs : List Char) :
     · intro h
       cases h with
       | MSym _ hm => simp [deriv, hm, matches_eps]
-  | Alt l r ihl ihr => simp only [deriv, matches_smart_alt, matches_alt, ihl, ihr]
+  | Alt l r ihl ihr => simp only [deriv, matches_smart_altN, matches_alt, ihl, ihr]
   | Cat l r ihl ihr =>
     -- The character goes to `l` — or, when `l` can vanish, straight to `r`.
     have head :
@@ -202,7 +218,7 @@ theorem deriv_iff (c : Char) (r : Regex) (cs : List Char) :
         obtain ⟨xs, ys, rfl, hl, hr⟩ := head.mp h
         exact ⟨c :: xs, ys, rfl, hl, hr⟩
       | true =>
-        simp only [deriv, hn, ↓reduceIte, matches_smart_alt] at h
+        simp only [deriv, hn, ↓reduceIte, matches_smart_altN] at h
         rcases h with h | h
         · obtain ⟨xs, ys, rfl, hl, hr⟩ := head.mp h
           exact ⟨c :: xs, ys, rfl, hl, hr⟩
@@ -211,14 +227,14 @@ theorem deriv_iff (c : Char) (r : Regex) (cs : List Char) :
       rcases List.cons_eq_append_iff.mp hcs with ⟨rfl, rfl⟩ | ⟨xs', rfl, rfl⟩
       · -- `l` matched nothing: it is nullable, and `c` went to `r`.
         have hn : nullable l = true := nullableComplete hl rfl
-        simp only [deriv, hn, ↓reduceIte, matches_smart_alt]
+        simp only [deriv, hn, ↓reduceIte, matches_smart_altN]
         exact .inr ((ihr cs).mpr hr)
       · -- `l` consumed `c`.
         have hd : Matches (cat (deriv c l) r) (xs' ++ ys) := head.mpr ⟨xs', ys, rfl, hl, hr⟩
         cases hn : nullable l with
         | false => simpa [deriv, hn] using hd
         | true =>
-          simp only [deriv, hn, ↓reduceIte, matches_smart_alt]
+          simp only [deriv, hn, ↓reduceIte, matches_smart_altN]
           exact .inl hd
   | Star r ih =>
     simp only [deriv, matches_smart_cat, matches_cat, ih]
