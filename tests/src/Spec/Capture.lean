@@ -1,5 +1,6 @@
 import Harness
 import Regex.Capture
+import Regex.Search
 
 /-!
 Specs for capture groups (the Pike VM) — exercise 4 of "What's next".
@@ -10,6 +11,12 @@ open Harness
 /-- Captures of a pattern we trust; a compile error counts as "no match". -/
 def caps (pat s : String) : Option (List (Option String)) :=
   match Capture.captures pat s with
+  | .ok r => r
+  | .error _ => none
+
+/-- Captures of the first match found by searching (a compile error counts as "no match"). -/
+def found (pat s : String) : Option (List (Option String)) :=
+  match Capture.search pat s with
   | .ok r => r
   | .error _ => none
 
@@ -48,4 +55,21 @@ def captureSpecs : List Spec :=
     it "(? without a colon is not a group"
       (match Capture.compile "(?a)", compile "(?a)" with
       | .error _, .error _ => true
-      | _, _ => false)]
+      | _, _ => false),
+    shouldBe "search finds the match anywhere and reports its groups" (found "(b)" "abc")
+      (some [some "b", some "b"]),
+    shouldBe "search reports the groups of a match in the middle"
+      (found "(\\d+)-(\\d+)" "tel: 12-345 ok") (some [some "12-345", some "12", some "345"]),
+    shouldBe "the leftmost match wins" (found "(a+)" "xaa ya") (some [some "aa", some "aa"]),
+    shouldBe "search is leftmost-first: a|ab finds a, unlike find?'s leftmost-longest"
+      (found "a|ab" "xab", (compile "a|ab").toOption.bind (·.find? "xab") |>.map (·.text))
+      (some [some "a"], some "ab"),
+    shouldBe "an empty match at the start is the leftmost match" (found "(a*)" "baa")
+      (some [some "", some ""]),
+    shouldBe "no match anywhere is none" (found "(\\d)" "no digits") none,
+    it "search finds a match exactly when contains says there is one"
+      ([("(a|b)*c", "xxabcx"), ("x(y)?z", "axzb"), ("\\d{3}", "12 34"), ("(ab)+", "aabab")].all
+        fun (p, s) =>
+        match compile p, Capture.search p s with
+        | .ok r, .ok c => r.contains s == c.isSome
+        | _, _ => false)]

@@ -18,9 +18,11 @@ boundaries along: a **Pike VM**.
    linear in the input, like the derivative engine, and never
    backtracking.
 
-Semantics: whole-string matching (like `match`), with the priorities
-of Perl-style engines — in `l|r` the left branch is preferred, and `*`
-is greedy. A group inside a repetition reports its last iteration.
+Semantics: `captures` is whole-string matching (like `match`), with the
+priorities of Perl-style engines — in `l|r` the left branch is preferred,
+and `*` is greedy. A group inside a repetition reports its last
+iteration. `search` finds a match anywhere: leftmost first, then by the
+same priorities (so, unlike `Regex.find?`, not necessarily the longest).
 
 The `Regex` tree, the derivative engine and its proofs are untouched:
 this module only *reuses* the pattern parser's building blocks
@@ -267,27 +269,76 @@ def addThread (prog : Array Inst) (pos : Nat) : Nat → Thread → ThreadList �
 def emptyList (prog : Array Inst) : ThreadList :=
   (Array.replicate prog.size false, #[])
 
-/-- Advance every thread over the character `c` at position `pos`, in priority order. -/
+/--
+Advance every thread over the character `c` at position `pos`, in priority
+order. Returns the whole thread list (with its `seen` marks), so that the
+search can still add a lower-priority thread at the next position.
+-/
+def stepList (prog : Array Inst) (pos : Nat) (c : Char) (threads : Array Thread) : ThreadList :=
+  threads.foldl
+    (fun st (pc, caps) =>
+      match prog[pc]? with
+      | some (.sym s) =>
+        if CharSet.member c s then addThread prog (pos + 1) (prog.size + 1) (pc + 1, caps) st
+        else st
+      | _ => st)
+    (emptyList prog)
+
+/-- Advance every thread over `c` (just the threads). -/
 def stepAll (prog : Array Inst) (pos : Nat) (c : Char) (threads : Array Thread) : Array Thread :=
-  (threads.foldl
-      (fun st (pc, caps) =>
-        match prog[pc]? with
-        | some (.sym s) =>
-          if CharSet.member c s then addThread prog (pos + 1) (prog.size + 1) (pc + 1, caps) st
-          else st
-        | _ => st)
-      (emptyList prog)).2
+  (stepList prog pos c threads).2
+
+/-- Has this thread matched the whole pattern? -/
+def isDone (prog : Array Inst) : Thread → Bool
+  | (pc, _) =>
+    match prog[pc]? with
+    | some .done => true
+    | _ => false
 
 /-- Run the VM over the whole input; the highest-priority `done` thread at the end wins. -/
 def run (prog : Array Inst) (slots : Nat) (cs : List Char) : Option (Array (Option Nat)) :=
   let start := (addThread prog 0 (prog.size + 1) (0, Array.replicate slots none) (emptyList prog)).2
   let (_, final) :=
     cs.foldl (fun (pos, threads) c => (pos + 1, stepAll prog pos c threads)) (0, start)
-  (final.find? fun (pc, _) =>
-        match prog[pc]? with
-        | some .done => true
-        | _ => false).map
-    (·.2)
+  (final.find? (isDone prog)).map (·.2)
+
+/--
+Search: a match may start anywhere. The loop at position `pos`:
+
+1. While nothing has matched yet, start a fresh thread here — with the
+   *lowest* priority, so a match that started further left always wins.
+2. If some thread is `done`, the highest-priority one is the best match
+   so far; every thread after it (lower priority) is cut off.
+3. The threads before it (higher priority) keep running: they may still
+   produce a match the priorities prefer (e.g. a greedy star going on).
+
+This is leftmost-first (Perl / Python / JavaScript) semantics, not the
+leftmost-longest of `Regex.find?`: `a|ab` on `"xab"` finds `"a"`.
+-/
+def settle (prog : Array Inst) (slots : Nat) (pos : Nat) (tl : ThreadList)
+    (best : Option (Array (Option Nat))) : Option (Array (Option Nat)) × Array Thread :=
+  let tl :=
+    if best.isNone then addThread prog pos (prog.size + 1) (0, Array.replicate slots none) tl
+    else tl
+  match tl.2.findIdx? (isDone prog) with
+  | some k => (some (tl.2.getD k (0, #[])).2, tl.2.extract 0 k)
+  | none => (best, tl.2)
+
+/-- The search loop: settle the threads at each position, then step over the next character. -/
+def searchLoop (prog : Array Inst) (slots : Nat) (pos : Nat) (tl : ThreadList)
+    (best : Option (Array (Option Nat))) : List Char → Option (Array (Option Nat))
+  | [] => (settle prog slots pos tl best).1
+  | c :: rest =>
+    let (best, threads) := settle prog slots pos tl best
+    if threads.isEmpty && best.isSome then best
+    else searchLoop prog slots (pos + 1) (stepList prog pos c threads) best rest
+
+/-- Cut the text of every group out of the input, given the capture slots. -/
+def groupsOf (cs : List Char) (n : Nat) (slots : Array (Option Nat)) : List (Option String) :=
+  (List.range n).map fun i =>
+    match slots.getD (2 * i) none, slots.getD (2 * i + 1) none with
+    | some a, some b => some (String.ofList ((cs.drop a).take (b - a)))
+    | _, _ => none
 
 /--
 What each group matched, for a whole-string match: index 0 is the whole
@@ -295,16 +346,25 @@ input, index i is group i (`none` if the group did not take part).
 `none` overall means no match.
 -/
 def Re.captures (r : Re) (s : String) : Option (List (Option String)) :=
-  let cs := s.toList
   let n := groupCount r + 1
-  (run (program r) (2 * n) cs).map fun slots =>
-    (List.range n).map fun i =>
-      match slots.getD (2 * i) none, slots.getD (2 * i + 1) none with
-      | some a, some b => some (String.ofList ((cs.drop a).take (b - a)))
-      | _, _ => none
+  (run (program r) (2 * n) s.toList).map (groupsOf s.toList n)
+
+/--
+What each group matched for the first match found by *searching* `s`
+(leftmost, then by priority — see `searchLoop`). Index 0 is the matched
+part of `s`.
+-/
+def Re.search (r : Re) (s : String) : Option (List (Option String)) :=
+  let n := groupCount r + 1
+  let prog := program r
+  (searchLoop prog (2 * n) 0 (emptyList prog) none s.toList).map (groupsOf s.toList n)
 
 /-- Compile a pattern and report its captures against `s`. -/
 def captures (pat s : String) : Except CompileError (Option (List (Option String))) :=
   (fun r => r.captures s) <$> compile pat
+
+/-- Compile a pattern, search `s` with it, and report the captures of the match found. -/
+def search (pat s : String) : Except CompileError (Option (List (Option String))) :=
+  (fun r => r.search s) <$> compile pat
 
 end Capture
