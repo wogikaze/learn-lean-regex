@@ -2,6 +2,7 @@ import Spec.Anchor
 import Spec.Api
 import Spec.Capture
 import Spec.Core
+import Spec.Dfa
 import Spec.Lex
 import Spec.Naive
 import Spec.Parse
@@ -46,4 +47,5 @@ def main : IO Unit :=
       anchorSpecs ++
       searchSpecs ++
       replaceSpecs ++
-      captureSpecs)
+      captureSpecs ++
+      dfaSpecs)

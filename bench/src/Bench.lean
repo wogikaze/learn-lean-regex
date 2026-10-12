@@ -1,8 +1,10 @@
 import Regex
+import Regex.Dfa
 import Regex.Naive
 
 /-!
-The race: the derivative engine against the backtracker.
+The race: the derivative engine against the backtracker (and, since
+exercise 5, the DFA built from memoized derivatives).
 
 （Idris の `bench/src/Main.idr` にあたる。テスト側の `Main` とモジュール名が
 ぶつからないように `Bench` という名前にしている）
@@ -49,12 +51,24 @@ def race (n : Nat) : IO Unit := do
   IO.println s!"n = {n}"
   timed "derivatives " fun _ => (evil n).matches (input n)
   timed "backtracking" fun _ => naiveMatch (evil n) (input n)
+  timed "dfa (build+run)" fun _ =>
+      match Dfa.build (evil n) with
+      | some d => d.matches (input n)
+      | none => false
 
 def main : IO Unit := do
-  IO.println "(a?){n}a{n} against a^n — both engines"
+  IO.println "(a?){n}a{n} against a^n — derivatives, backtracking, and the DFA"
   for n in [10, 12, 14, 16, 18, 20] do
     race n
   IO.println ""
   IO.println "fixed pattern (a|b)*c, growing input — derivatives only"
   for n in [9999, 99999, 999999] do
     timed s!"length = {n + 1}" fun _ => fixed.matches (inputC n)
+  IO.println ""
+  IO.println "fixed pattern (a|b)*c, growing input — DFA built once, then table lookups"
+  match Dfa.build fixed with
+  | some d =>
+    for n in [9999, 99999, 999999] do
+      timed s!"length = {n + 1}" fun _ => d.matches (inputC n)
+  | none =>
+    IO.println "  (too many states)"
