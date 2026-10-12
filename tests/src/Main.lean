@@ -1,3 +1,4 @@
+import Spec.Anchor
 import Spec.Api
 import Spec.Core
 import Spec.Lex
@@ -38,4 +39,5 @@ def main : IO Unit :=
       prettySpecs ++
       verifiedSpecs ++
       naiveSpecs ++
-      lexSpecs)
+      lexSpecs ++
+      anchorSpecs)

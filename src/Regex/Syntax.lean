@@ -34,7 +34,7 @@ Characters that mean something special outside a class.
 (Public so the pretty-printer knows what to escape.)
 -/
 def isMeta (c : Char) : Bool :=
-  "()[]{}|*+?.\\".toList.elem c
+  "()[]{}|*+?.\\^$".toList.elem c
 
 /--
 A backslash escape interpreted as a single character:
@@ -174,6 +174,18 @@ run it themselves (the `Regex` module does, to report positions).
 -/
 def patternParser : Parser Regex :=
   alternation ()
+
+/--
+A whole pattern with optional anchors: `^` may appear only at the very
+start and `$` only at the very end. They are not part of the `Regex`
+tree — `match` is already anchored at both ends, so anchors only mean
+something for searching. The parser reports them as two flags.
+-/
+def anchoredParser : Parser (Bool × Regex × Bool) := do
+  let start ← (char '^' *> pure true) <|> pure false
+  let r ← alternation ()
+  let stop ← (char '$' *> pure true) <|> pure false
+  pure (start, r, stop)
 
 /--
 Compile a pattern string into a regex — or `none` when the

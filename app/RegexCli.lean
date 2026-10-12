@@ -20,9 +20,9 @@ def usage : String :=
     "  e.g. lake exe regex '(colou?r|gr[ae]y)' color grey \"a grey wall\""
 
 /-- One line of output per input: the input, then both verdicts. -/
-def report (r : Regex) (input : String) : String :=
+def report (p : Pattern) (input : String) : String :=
   let yesNo (b : Bool) := if b then "yes" else "no "
-  s!"  {repr input}\n    match:    {yesNo (r.match input)}\n    contains: {yesNo (r.contains input)}"
+  s!"  {repr input}\n    match:    {yesNo (p.match input)}\n    contains: {yesNo (p.contains input)}"
 
 def main (args : List String) : IO UInt32 := do
   match args with
@@ -30,15 +30,16 @@ def main (args : List String) : IO UInt32 := do
     IO.eprintln usage
     return 1
   | pattern :: inputs =>
-    match compile pattern with
+    match compilePattern pattern with
     | .error e =>
       IO.eprintln s!"error: {e}"
       IO.eprintln s!"  {pattern}"
       IO.eprintln s!"  {"".pushn ' ' e.position}^"
       return 2
-    | .ok r =>
+    | .ok p =>
       IO.println s!"pattern: {pattern}"
-      IO.println s!"tree:    {r}"
+      IO.println s!"tree:    {p.regex}"
+      IO.println s!"anchors: start={p.anchorStart} end={p.anchorEnd}"
       for input in inputs do
-        IO.println (report r input)
+        IO.println (report p input)
       return 0
