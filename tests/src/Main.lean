@@ -6,6 +6,7 @@ import Spec.Dfa
 import Spec.Lex
 import Spec.Naive
 import Spec.Parse
+import Spec.ParseErrors
 import Spec.Pretty
 import Spec.Replace
 import Spec.Search
@@ -50,4 +51,5 @@ def main : IO Unit :=
       replaceSpecs ++
       captureSpecs ++
       dfaSpecs ++
-      unicodeSpecs)
+      unicodeSpecs ++
+      parseErrorSpecs)

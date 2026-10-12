@@ -50,6 +50,20 @@ def compile (s : String) : Except CompileError Regex :=
   | none => .error ⟨0, "malformed pattern"⟩
 
 /--
+Compile a pattern, or explain *why* it went wrong (exercise 7).
+
+`compile` reports where parsing stopped consuming and always says
+"unexpected character". This version asks the combinators themselves:
+every failure records how far it got and what it expected there, and
+the furthest one wins — so `[oops` points at the missing `]` at the end,
+not at the `[`.
+-/
+def compileDetailed (s : String) : Except CompileError Regex :=
+  match parseExplained Syntax.patternParser s with
+  | .ok r => .ok r
+  | .error (pos, msg) => .error ⟨pos, msg⟩
+
+/--
 Does the regex match the *whole* input? A synonym for
 `Regex.matches`, under the name users expect.
 
@@ -96,14 +110,13 @@ structure Pattern where
   deriving Repr
 
 /--
-Compile a pattern that may carry anchors, reporting the position where
-parsing gave up exactly like `compile`.
+Compile a pattern that may carry anchors. Errors are explained like
+`compileDetailed` (exercise 7): where the furthest attempt failed, and why.
 -/
 def compilePattern (s : String) : Except CompileError Pattern :=
-  match Syntax.anchoredParser.runParser s.toList with
-  | some ((a, r, b), []) => .ok ⟨r, a, b⟩
-  | some (_, rest) => .error ⟨s.length - rest.length, "unexpected character"⟩
-  | none => .error ⟨0, "malformed pattern"⟩
+  match parseExplained Syntax.anchoredParser s with
+  | .ok (a, r, b) => .ok ⟨r, a, b⟩
+  | .error (pos, msg) => .error ⟨pos, msg⟩
 
 /-- Whole-string matching. Anchors change nothing: it is anchored already. -/
 def Pattern.«match» (p : Pattern) (s : String) : Bool :=

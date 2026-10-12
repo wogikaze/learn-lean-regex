@@ -60,7 +60,7 @@ order the parentheses appear.
 
 /-- How many input characters are left — used to key each group. -/
 def remaining : Parser Nat :=
-  ⟨fun cs => some (cs.length, cs)⟩
+  remainingInput
 
 def exactlyR : Nat → Re → Re
   | 0, _ => .Eps
