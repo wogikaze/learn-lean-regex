@@ -51,6 +51,8 @@ def renderSet (s : CharSet) : String :=
   else if s == complement word then "\\W"
   else if s == space then "\\s"
   else if s == complement space then "\\S"
+  else if let some (name, _) := categories.find? (·.2 == s) then s!"\\p\{{name}}"
+  else if let some (name, _) := categories.find? (complement ·.2 == s) then s!"\\P\{{name}}"
   else
     match s with
     | MkSet false [(lo, hi)] =>

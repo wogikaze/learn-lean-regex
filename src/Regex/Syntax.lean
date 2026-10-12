@@ -1,5 +1,6 @@
 import Regex.Parse
 import Regex.Sugar
+import Regex.Unicode
 
 /-!
 From pattern strings to the AST.
@@ -49,12 +50,31 @@ where interp : Char → Char
     | c => c
 
 /--
+The `{Name}` after `\p` or `\P`: a Unicode general category such as
+`L` (letters) or `Nd` (decimal digits). An unknown name fails.
+-/
+def propertyName : Parser CharSet := do
+  let _ ← char '{'
+  let name ← some' (satisfy Char.isAlpha)
+  let _ ← char '}'
+  match category? (String.ofList name) with
+  | some s =>
+    pure s
+  | none =>
+    failure
+
+/-- `\p{L}` is a Unicode category, `\P{L}` its complement (the `\` already consumed). -/
+def property : Parser Regex :=
+  (char 'p' *> (Sym <$> propertyName)) <|> (char 'P' *> ((Sym ∘ complement) <$> propertyName))
+
+/--
 A backslash escape interpreted as a regex atom. The shorthand
 classes expand to the sets from `Regex.Set`; anything else is
-the escaped character itself.
+the escaped character itself. `\p{…}` / `\P{…}` are Unicode
+categories (a `\p` without braces is still just `p`).
 -/
 def escapedAtom : Parser Regex :=
-  char '\\' *> interp <$> anyToken
+  char '\\' *> (property <|> interp <$> anyToken)
 where interp : Char → Regex
     | 'd' => Sym digit
     | 'D' => Sym (complement digit)
@@ -67,11 +87,12 @@ where interp : Char → Regex
     | 'r' => lit '\r'
     | c => lit c
 
-/-- Inside a class, `\d` `\w` `\s` contribute their ranges. -/
+/-- Inside a class, `\d` `\w` `\s` and `\p{…}` contribute their ranges. -/
 def shorthandRanges : Parser (List (Char × Char)) :=
   char '\\' *>
     ((char 'd' *> pure (ranges digit)) <|>
-      (char 'w' *> pure (ranges word)) <|> (char 's' *> pure (ranges space)))
+      (char 'w' *> pure (ranges word)) <|>
+      (char 's' *> pure (ranges space)) <|> (char 'p' *> (ranges <$> propertyName)))
 
 /--
 A literal character inside a class: anything but `]`, `\` or

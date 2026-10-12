@@ -12,6 +12,7 @@ import Spec.Search
 import Spec.Set
 import Spec.Sugar
 import Spec.Syntax
+import Spec.Unicode
 import Spec.Verified
 
 /-!
@@ -48,4 +49,5 @@ def main : IO Unit :=
       searchSpecs ++
       replaceSpecs ++
       captureSpecs ++
-      dfaSpecs)
+      dfaSpecs ++
+      unicodeSpecs)
