@@ -1,5 +1,6 @@
 import Spec.Api
 import Spec.Core
+import Spec.Lex
 import Spec.Naive
 import Spec.Parse
 import Spec.Pretty
@@ -36,4 +37,5 @@ def main : IO Unit :=
       apiSpecs ++
       prettySpecs ++
       verifiedSpecs ++
-      naiveSpecs)
+      naiveSpecs ++
+      lexSpecs)
