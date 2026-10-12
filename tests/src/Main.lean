@@ -1,5 +1,6 @@
 import Spec.Anchor
 import Spec.Api
+import Spec.Capture
 import Spec.Core
 import Spec.Lex
 import Spec.Naive
@@ -44,4 +45,5 @@ def main : IO Unit :=
       lexSpecs ++
       anchorSpecs ++
       searchSpecs ++
-      replaceSpecs)
+      replaceSpecs ++
+      captureSpecs)
