@@ -1,10 +1,11 @@
 import Spec.Api
 import Spec.Core
 import Spec.Parse
+import Spec.Pretty
 import Spec.Set
 import Spec.Sugar
 import Spec.Syntax
-import Spec.Pretty
+import Spec.Verified
 
 /-!
 Entry point of the test suite.
@@ -32,4 +33,5 @@ def main : IO Unit :=
       parseSpecs ++
       syntaxSpecs ++
       apiSpecs ++
-      prettySpecs)
+      prettySpecs ++
+      verifiedSpecs)
