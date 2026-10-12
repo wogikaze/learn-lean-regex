@@ -113,13 +113,18 @@ partial def atom (_ : Unit) : Parser Re :=
     (char '.' *> pure (.Sym CharSet.anyChar)) <|>
     (ofRegex <$> Syntax.escapedAtom) <|>
     ((fun c => .Sym (CharSet.single c)) <$> satisfy (not ∘ Syntax.isMeta))
-  /-- A group, keyed by how much input was left at its `(`. -/
-      partial def group (_ : Unit) : Parser Re := do
-        let key ← remaining
-        let _ ← char '('
-        let r ← recur fun _ => alternation ()
-        let _ ← char ')'
-        pure (.Group key r)
+/--
+A group, keyed by how much input was left at its `(`.
+`(?:…)` groups without capturing: it returns the inside, with no `Group`
+node, so it gets no number.
+-/
+partial def group (_ : Unit) : Parser Re := do
+  let key ← remaining
+  let _ ← char '('
+  let capturing ← (char '?' *> char ':' *> pure false) <|> pure true
+  let r ← recur fun _ => alternation ()
+  let _ ← char ')'
+  pure (if capturing then .Group key r else r)
 end
 
 /-- Every group key in the tree. -/

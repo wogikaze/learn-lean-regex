@@ -36,4 +36,16 @@ def captureSpecs : List Spec :=
         fun (p, s) =>
         match compile p, Capture.captures p s with
         | .ok r, .ok c => r.matches s == c.isSome
-        | _, _ => false)]
+        | _, _ => false),
+    shouldBe "(?:…) groups without capturing: no number, nothing reported"
+      (caps "(?:ab)+(c)" "ababc") (some [some "ababc", some "c"]),
+    shouldBe "non-capturing groups do not shift the numbers of the others"
+      (caps "(a)(?:b)(c)" "abc") (some [some "abc", some "a", some "c"]),
+    shouldBe "a non-capturing group still groups: (?:ab)* repeats ab" (caps "(?:ab)*" "abab")
+      (some [some "abab"]),
+    it "the derivative engine reads (?:…) as plain grouping"
+      (compile "(?:ab)*c" == compile "(ab)*c" && (compile "(?:a|b)").isOk),
+    it "(? without a colon is not a group"
+      (match Capture.compile "(?a)", compile "(?a)" with
+      | .error _, .error _ => true
+      | _, _ => false)]

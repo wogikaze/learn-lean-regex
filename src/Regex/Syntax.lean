@@ -185,8 +185,14 @@ partial def atom (_ : Unit) : Parser Regex :=
 where
   wildcard : Parser Regex := char '.' *> pure (Sym anyChar)
   plain : Parser Regex := lit <$> satisfy (not ∘ isMeta)
+/--
+A parenthesized group. Here parentheses only *group* (the derivative
+engine has nothing to capture), so `(?:…)` — the non-capturing group of
+`Regex.Capture` — means exactly the same as `(…)`.
+-/
 partial def group (_ : Unit) : Parser Regex :=
-  char '(' *> recur (fun _ => alternation ()) <* char ')'
+  char '(' *> ((char '?' *> char ':' *> pure ()) <|> pure ()) *> recur (fun _ => alternation ()) <*
+    char ')'
 end
 
 /--
