@@ -5,6 +5,7 @@ import Spec.Core
 import Spec.DerivCorrect
 import Spec.Dfa
 import Spec.Lex
+import Spec.Macro
 import Spec.Naive
 import Spec.Parse
 import Spec.ParseErrors
@@ -54,4 +55,5 @@ def main : IO Unit :=
       dfaSpecs ++
       unicodeSpecs ++
       parseErrorSpecs ++
-      derivProofSpecs)
+      derivProofSpecs ++
+      macroSpecs)
