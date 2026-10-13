@@ -145,7 +145,16 @@ and pointless, exactly like in the AST.
 （`postfix` は Lean の予約語なので `postfix'` にしている）
 -/
 def postfix' : Parser (Regex → Regex) :=
-  (char '*' *> pure star) <|> (char '+' *> pure plus) <|> (char '?' *> pure opt) <|> counted
+  ((char '*' *> pure star) <|> (char '+' *> pure plus) <|> (char '?' *> pure opt) <|> counted) <*
+    lazyMark
+where
+  /--
+  A trailing `?` makes a quantifier lazy (`*?`, `+?`, `??`, `{n,m}?`).
+  Laziness changes which match a *capture* or a leftmost-first search
+  prefers, never which strings match — so this engine reads it and
+  builds the same tree as the greedy form. `Regex.Capture` gives it meaning.
+  -/
+  lazyMark : Parser Unit := (char '?' *> pure ()) <|> pure ()
 
 /-
 （Lean 版の注記）Lean の `partial def` は関数にしか使えないので、

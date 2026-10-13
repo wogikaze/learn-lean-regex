@@ -23,6 +23,9 @@ priorities of Perl-style engines — in `l|r` the left branch is preferred,
 and `*` is greedy. A group inside a repetition reports its last
 iteration. `search` finds a match anywhere: leftmost first, then by the
 same priorities (so, unlike `Regex.find?`, not necessarily the longest).
+Lazy quantifiers (`*?`, `+?`, `??`, `{n,m}?`) prefer *fewer*
+repetitions: in the VM that is nothing more than the two branches of a
+`split` in the other order.
 
 The `Regex` tree, the derivative engine and its proofs are untouched:
 this module only *reuses* the pattern parser's building blocks
@@ -39,6 +42,8 @@ inductive Re where
   | Cat (l r : Re)
   | Alt (l r : Re)
   | Star (r : Re)
+  /-- `r*?`: zero or more, preferring *fewer* repetitions (lazy). -/
+  | LazyStar (r : Re)
   | Group (index : Nat) (r : Re)
   deriving Repr
 
@@ -68,12 +73,23 @@ def exactlyR : Nat → Re → Re
   | 0, _ => .Eps
   | n + 1, r => .Cat r (exactlyR n r)
 
-def upToR : Nat → Re → Re
-  | 0, _ => .Eps
-  | n + 1, r => .Alt (.Cat r (upToR n r)) .Eps
+/--
+Greedy or lazy star. Laziness only changes *priorities*: which way a
+`split` tries first. The set of matched strings is the same.
+-/
+def starOf (lazy : Bool) (r : Re) : Re :=
+  if lazy then .LazyStar r else .Star r
 
-/-- `{n}`, `{n,}` and `{n,m}` as functions on `Re` (like `Syntax.counted`). -/
-def countedR : Parser (Re → Re) := do
+/-- `r?` prefers taking `r`; the lazy `r??` prefers skipping it — the same two branches, swapped. -/
+def optOf (lazy : Bool) (r : Re) : Re :=
+  if lazy then .Alt .Eps r else .Alt r .Eps
+
+def upToR (lazy : Bool) : Nat → Re → Re
+  | 0, _ => .Eps
+  | n + 1, r => optOf lazy (.Cat r (upToR lazy n r))
+
+/-- `{n}`, `{n,}` and `{n,m}` (like `Syntax.counted`), waiting to hear whether they are lazy. -/
+def countedR : Parser (Bool → Re → Re) := do
   let _ ← char '{'
   let n ← natural
   let f ←
@@ -81,17 +97,24 @@ def countedR : Parser (Re → Re) := do
           let _ ← char ','
           (do
                 let m ← natural
-                pure fun r => .Cat (exactlyR n r) (upToR (m - n) r)) <|>
-              pure fun r => .Cat (exactlyR n r) (.Star r)) <|>
-        pure (exactlyR n)
+                pure fun lazy r => .Cat (exactlyR n r) (upToR lazy (m - n) r)) <|>
+              pure fun lazy r => .Cat (exactlyR n r) (starOf lazy r)) <|>
+        pure fun _ => exactlyR n
   let _ ← char '}'
   pure f
 
-/-- A postfix operator, as a function on `Re` (like `Syntax.postfix'`). -/
-def postfixR : Parser (Re → Re) :=
-  (char '*' *> pure .Star) <|>
-    (char '+' *> pure fun r => .Cat r (.Star r)) <|>
-    (char '?' *> pure fun r => .Alt r .Eps) <|> countedR
+/-- A `?` right after a quantifier makes it lazy: `*?`, `+?`, `??`, `{n,m}?`. -/
+def lazyMark : Parser Bool :=
+  (char '?' *> pure true) <|> pure false
+
+/-- A postfix operator, as a function on `Re` (like `Syntax.postfix'`), greedy or lazy. -/
+def postfixR : Parser (Re → Re) := do
+  let op ←
+    (char '*' *> pure starOf) <|>
+        (char '+' *> pure fun lazy r => .Cat r (starOf lazy r)) <|>
+        (char '?' *> pure optOf) <|> countedR
+  let lazy ← lazyMark
+  pure (op lazy)
 
 /-- Choice between the alternatives, folded to the right, without a `Fail` seed. -/
 def altAll : Re → List Re → Re
@@ -132,7 +155,7 @@ end
 /-- Every group key in the tree. -/
 def keys : Re → List Nat
   | .Cat l r | .Alt l r => keys l ++ keys r
-  | .Star r => keys r
+  | .Star r | .LazyStar r => keys r
   | .Group k r => k :: keys r
   | _ => []
 
@@ -141,6 +164,7 @@ def renumber (order : List Nat) : Re → Re
   | .Cat l r => .Cat (renumber order l) (renumber order r)
   | .Alt l r => .Alt (renumber order l) (renumber order r)
   | .Star r => .Star (renumber order r)
+  | .LazyStar r => .LazyStar (renumber order r)
   | .Group k r => .Group (order.idxOf k + 1) (renumber order r)
   | r => r
 
@@ -222,6 +246,13 @@ def gen : Re → Gen Unit
     let _ ← emit (.jmp sp)
     let out ← here
     patch sp (.split (sp + 1) out)
+  | .LazyStar r => do
+    -- the same loop as `Star`, but the split prefers leaving it
+    let sp ← emit (.split 0 0)
+    gen r
+    let _ ← emit (.jmp sp)
+    let out ← here
+    patch sp (.split out (sp + 1))
   | .Group i r => do
     let _ ← emit (.save (2 * i))
     gen r

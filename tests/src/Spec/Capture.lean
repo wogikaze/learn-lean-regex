@@ -72,4 +72,25 @@ def captureSpecs : List Spec :=
         fun (p, s) =>
         match compile p, Capture.search p s with
         | .ok r, .ok c => r.contains s == c.isSome
-        | _, _ => false)]
+        | _, _ => false),
+    shouldBe "a lazy star takes as little as it can" (caps "(a*?)(a*)" "aa")
+      (some [some "aa", some "", some "aa"]),
+    shouldBe "a lazy plus takes one, the minimum" (caps "(a+?)(a*)" "aaa")
+      (some [some "aaa", some "a", some "aa"]),
+    shouldBe "a lazy ?? prefers skipping" (caps "(a??)(a?)" "a")
+      (some [some "a", some "", some "a"]),
+    shouldBe "a lazy {1,3}? takes the lower bound" (caps "(a{1,3}?)(a*)" "aaa")
+      (some [some "aaa", some "a", some "aa"]),
+    shouldBe "searching with a lazy quantifier stops at the first close: <(.+?)>"
+      (found "<(.+?)>" "<a><b>") (some [some "<a>", some "a"]),
+    shouldBe "…while the greedy one runs to the last: <(.+)>" (found "<(.+)>" "<a><b>")
+      (some [some "<a><b>", some "a><b"]),
+    it "laziness never changes which strings match"
+      ([("(a*?)b", "aaab"), ("(a+?)", ""), ("x(y??)z", "xyz"), ("(ab){1,2}?", "abab")].all
+        fun (p, s) =>
+        match compile p, Capture.captures p s with
+        | .ok r, .ok c => r.matches s == c.isSome
+        | _, _ => false),
+    it "the derivative engine reads lazy quantifiers as the greedy ones"
+      (compile "a*?b+?c??d{1,2}?" == compile "a*b+c?d{1,2}" &&
+        ((compile "<.+?>").toOption.bind (·.find? "<a><b>")).map (·.text) == some "<a><b>")]
